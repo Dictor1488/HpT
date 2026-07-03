@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Custom HPBar Gameface mod, Watch-like resource layout.
+# Custom HPBar Gameface mod, Watch-like resource layout. Source version for GitHub build.
 # Python 2.7 compatible.
 
 import json
@@ -11,7 +11,7 @@ from gui.battle_control.controllers import battle_field_ctrl
 from gui.battle_control.controllers.battle_field_ctrl import IBattleFieldListener
 
 _logger = logging.getLogger('[CustomHPBarGF]')
-print '[CustomHPBarGF] module import started'
+print '[CustomHPBarGF] module import started v0.0.18-source'
 
 RES_MAP_ITEM_ID = 'mods/custom_hpbar/CustomHPBarBattle/layoutID'
 
@@ -51,7 +51,7 @@ class CustomHPBarModel(ViewModel):
         self.onReady = self._addCommand('onReady')
         self.onReady += self.__onReady
 
-    def __onReady(self, args):
+    def __onReady(self, *args):
         _logger.info('Gameface view ready: %s', args)
 
     def getPayload(self):
