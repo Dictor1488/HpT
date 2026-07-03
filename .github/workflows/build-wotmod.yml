@@ -1,0 +1,22 @@
+name: Build Gameface HPBar wotmod
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build wotmod
+        run: python3 tools/build_wotmod.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: custom-hpbar-gameface-wotmod
+          path: build/custom_hpbar_gameface.wotmod
