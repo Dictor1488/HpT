@@ -1,23 +1,28 @@
-name: Build Watch-Structure Gameface HPBar
-
+name: Build compiled Gameface HPBar wotmod
 on:
   workflow_dispatch:
-  push:
-    branches: [ main, master ]
-
+    inputs:
+      version:
+        description: 'Mod version'
+        required: true
+        default: '0.0.5'
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Build wotmod
+      - name: Install Python 2.7
+        run: choco install python2 -y --no-progress
+      - name: Build wotmod with pyc
         shell: pwsh
-        run: ./tools/build_wotmod.ps1
+        run: |
+          python build.py --version "${{ inputs.version }}" --python "C:/Python27/python.exe"
+          Write-Host "Archive content:"
+          tar -tf (Get-ChildItem build/*.wotmod | Select-Object -First 1).FullName
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: custom-hpbar-gameface-watch-structure
+          name: custom-hpbar-gameface-compiled-wotmod
           path: build/*.wotmod
