@@ -80,6 +80,9 @@ class CustomHPBarView(ViewImpl):
         self.__enemiesFrags = 0
         self.__visible = True
         self.__scale = 1.0
+        self.__allyVehicles = []
+        self.__enemyVehicles = []
+        self.__colorBlind = False
 
     @property
     def viewModel(self):
@@ -101,7 +104,10 @@ class CustomHPBarView(ViewImpl):
             'enemyPct': _percent(enemiesHp, totalEnemiesHp),
             'alliesFrags': _safe_int(self.__alliesFrags),
             'enemiesFrags': _safe_int(self.__enemiesFrags),
-            'diff': alliesHp - enemiesHp
+            'diff': alliesHp - enemiesHp,
+            'colorBlind': bool(self.__colorBlind),
+            'allyVehicles': self.__allyVehicles,
+            'enemyVehicles': self.__enemyVehicles
         }
         try:
             raw = json.dumps(payload, separators=(',', ':'))
@@ -123,6 +129,78 @@ class CustomHPBarView(ViewImpl):
         self.__enemiesFrags = enemiesFrags
         self.__visible = True
         self.__push()
+
+    _CLASS_TAGS = ('heavyTank', 'mediumTank', 'lightTank', 'SPG', 'AT-SPG')
+    _CLASS_MAP = {
+        'heavyTank': 'heavy', 'mediumTank': 'medium', 'lightTank': 'light',
+        'SPG': 'spg', 'AT-SPG': 'atspg',
+    }
+    # display order: TT, ST, PT, LT, SAU
+    _ORDER = {'heavy': 0, 'medium': 1, 'atspg': 2, 'light': 3, 'spg': 4, 'unknown': 5}
+
+    def updateVehicles(self):
+        try:
+            import BigWorld
+            player = BigWorld.player()
+            if player is None:
+                return
+            arena = getattr(player, 'arena', None)
+            if arena is None:
+                return
+            vehicles = getattr(arena, 'vehicles', None)
+            if not vehicles:
+                return
+            myTeam = getattr(player, 'team', None)
+            ally = []
+            enemy = []
+            for vid, vData in vehicles.iteritems():
+                try:
+                    team = vData.get('team', None)
+                    vType = vData.get('vehicleType', None)
+                    cls = self.__classFromType(vType)
+                    alive = 1 if vData.get('isAlive', True) else 0
+                    entry = (self._ORDER.get(cls, 5), alive, '%s,%d' % (cls, alive))
+                    if team == myTeam:
+                        ally.append(entry)
+                    else:
+                        enemy.append(entry)
+                except Exception:
+                    continue
+            ally.sort(key=lambda t: (0 if t[1] else 1, t[0]))
+            enemy.sort(key=lambda t: (0 if t[1] else 1, t[0]))
+            self.__allyVehicles = [e[2] for e in ally]
+            self.__enemyVehicles = [e[2] for e in enemy]
+            self.__colorBlind = self.__isColorBlind()
+            self.__visible = True
+            self.__push()
+        except Exception:
+            _logger.exception('updateVehicles failed')
+
+    def __classFromType(self, vType):
+        try:
+            if vType is None:
+                return 'unknown'
+            typeObj = getattr(vType, 'type', vType)
+            tags = getattr(typeObj, 'tags', None)
+            if tags:
+                for t in self._CLASS_TAGS:
+                    if t in tags:
+                        return self._CLASS_MAP.get(t, 'unknown')
+            ct = getattr(typeObj, 'classTag', None)
+            if ct:
+                return self._CLASS_MAP.get(ct, 'unknown')
+        except Exception:
+            pass
+        return 'unknown'
+
+    def __isColorBlind(self):
+        try:
+            from helpers import dependency
+            from skeletons.account_helpers.settings_core import ISettingsCore
+            core = dependency.instance(ISettingsCore)
+            return bool(core.getSetting('isColorBlind'))
+        except Exception:
+            return False
 
     def hide(self):
         self.__visible = False
@@ -180,6 +258,7 @@ class CustomHPBarBattleListener(IBattleFieldListener):
         if self.view is not None:
             try:
                 self.view.updateHealth(alliesHP, enemiesHP, totalAlliesHP, totalEnemiesHP)
+                self.view.updateVehicles()
             except Exception:
                 _logger.exception('updateTeamHealth failed')
 
@@ -189,6 +268,7 @@ class CustomHPBarBattleListener(IBattleFieldListener):
         if self.view is not None:
             try:
                 self.view.updateScore(len(deadEnemies), len(deadAllies))
+                self.view.updateVehicles()
             except Exception:
                 _logger.exception('updateDeadVehicles failed')
 

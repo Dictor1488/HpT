@@ -1,17 +1,16 @@
 {
-  "version": 1,
+  "info": {
+    "id": "me.agent.custom_hpbar_gameface",
+    "version": "0.0.18",
+    "name": "Custom HPBar Gameface",
+    "description": "DOM Gameface HP bar, precise transfer from HudBarInjector visualization"
+  },
   "software": {
     "python": "C:/Python27/python.exe"
   },
-  "game": {
-    "force": false,
-    "folder": "D:/World_of_Tanks_EU",
-    "version": "2.3.0.1"
-  },
-  "info": {
-    "id": "me.agent.custom_hpbar_gameface",
-    "name": "Custom HPBar Gameface",
-    "description": "Gameface top team HP bar test mod. Python is compiled to pyc like Sensitivity.",
-    "version": "0.0.5"
+  "package": {
+    "compression": "stored",
+    "compilePython": true,
+    "copyPythonSource": false
   }
 }
