@@ -1,4 +1,4 @@
-name: Build Gameface HPBar wotmod
+name: Build Watch-Structure Gameface HPBar
 
 on:
   workflow_dispatch:
@@ -7,16 +7,17 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Build wotmod
-        run: python3 tools/build_wotmod.py
-
+        shell: pwsh
+        run: ./tools/build_wotmod.ps1
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: custom-hpbar-gameface-wotmod
-          path: build/custom_hpbar_gameface.wotmod
+          name: custom-hpbar-gameface-watch-structure
+          path: build/*.wotmod
