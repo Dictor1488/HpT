@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="CustomHPBar.css">
+</head>
+<body>
+  <div id="hpbar-root" class="hidden">
+    <div id="hpbar-holder">
+      <div class="side ally-side">
+        <div class="ruler ally-ruler"></div>
+        <div class="labels ally-labels"></div>
+        <div class="fill-clip ally-fill-clip"><div class="fill ally-fill"></div></div>
+        <div class="hatch-clip ally-hatch-clip"><div class="hatch ally-hatch"></div></div>
+        <div class="caption ally-caption">ХП</div>
+        <div class="hp ally-hp">0</div>
+        <div class="pct ally-pct">0%</div>
+      </div>
+
+      <div class="score" id="score">0 : 0</div>
+
+      <div class="side enemy-side">
+        <div class="ruler enemy-ruler"></div>
+        <div class="labels enemy-labels"></div>
+        <div class="fill-clip enemy-fill-clip"><div class="fill enemy-fill"></div></div>
+        <div class="hatch-clip enemy-hatch-clip"><div class="hatch enemy-hatch"></div></div>
+        <div class="caption enemy-caption">ХП</div>
+        <div class="hp enemy-hp">0</div>
+        <div class="pct enemy-pct">0%</div>
+      </div>
+
+      <div class="diff-line"></div>
+      <div class="diff-box"><span id="diff">0</span></div>
+    </div>
+  </div>
+  <script defer src="CustomHPBar.js"></script>
+</body>
+</html>
