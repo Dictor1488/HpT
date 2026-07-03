@@ -1,0 +1,184 @@
+:root {
+  font-size: 2px;
+  --base-width: 1052px;
+  --top-y: 8px;
+  --ruler-len: 294px;
+  --gap-center: 95px;
+  --bar-y: 36px;
+  --fill-h: 4px;
+  --green: #95eb59;
+  --red: #ee2528;
+  --white: #f3f5f7;
+  --ruler: rgba(168, 181, 191, 0.58);
+  --label: rgba(143, 160, 173, 0.30);
+  --hatch: rgba(198, 208, 218, 0.78);
+  --connect: rgba(169, 182, 192, 0.62);
+  --boxline: rgba(146, 160, 172, 0.78);
+  --shadow: rgba(0, 0, 0, 0.90);
+}
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  pointer-events: none;
+  font-family: "$FieldFont", Arial, sans-serif;
+}
+
+.hpbar-root {
+  position: fixed;
+  left: 0;
+  top: var(--top-y);
+  width: 100vw;
+  height: 110px;
+  pointer-events: none;
+  z-index: 2147483647;
+  opacity: 1;
+}
+
+.hpbar-hidden { opacity: 0; }
+
+.hpbar-holder {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: var(--base-width);
+  height: 110px;
+  transform: translateX(-50%) scale(var(--hud-scale, 1));
+  transform-origin: top center;
+}
+
+.bar-side { position: absolute; top: 0; height: 100px; }
+.ally-side { left: 135px; width: var(--ruler-len); }
+.enemy-side { right: 135px; width: var(--ruler-len); }
+
+.ruler-line {
+  position: absolute;
+  left: 0;
+  top: var(--bar-y);
+  width: var(--ruler-len);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ruler), transparent);
+  box-shadow: 0 0 3px rgba(0,0,0,.8);
+}
+
+.ruler-labels {
+  position: absolute;
+  left: 0;
+  top: 12px;
+  width: var(--ruler-len);
+  height: 20px;
+}
+
+.ruler-label {
+  position: absolute;
+  transform: translateX(-50%) scaleY(1.2);
+  color: var(--label);
+  font-size: 12px;
+  font-weight: bold;
+  text-shadow: 0 0 4px #000;
+  white-space: nowrap;
+}
+
+.fill-wrap {
+  position: absolute;
+  top: var(--bar-y);
+  height: var(--fill-h);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  box-shadow: 0 0 8px currentColor;
+  background-image: repeating-linear-gradient(
+    90deg,
+    currentColor 0,
+    currentColor 56px,
+    rgba(0,0,0,.25) 56px,
+    rgba(0,0,0,.25) 58.5px
+  );
+}
+
+.ally-fill { color: var(--green); background-color: var(--green); }
+.enemy-fill { color: var(--red); background-color: var(--red); }
+
+.hatch-wrap {
+  position: absolute;
+  top: 43px;
+  height: 12px;
+  overflow: hidden;
+}
+
+.hatch {
+  height: 12px;
+  opacity: 0.82;
+  background-image: repeating-linear-gradient(
+    105deg,
+    transparent 0px,
+    transparent 2.4px,
+    var(--hatch) 2.4px,
+    var(--hatch) 3.3px,
+    transparent 3.3px,
+    transparent 6.1px
+  );
+}
+
+.hp-caption, .hp-number, .pct-number, .center-score, .diff-box {
+  position: absolute;
+  color: var(--white);
+  font-weight: bold;
+  text-shadow: 0 0 4px var(--shadow), 0 0 8px var(--shadow);
+  white-space: nowrap;
+}
+
+.hp-caption { top: 1px; font-size: 14px; }
+.hp-number { top: 16px; font-size: 25px; }
+.pct-number { top: 52px; font-size: 14px; }
+
+.ally-hp-caption { left: -54px; width: 45px; text-align: center; }
+.ally-hp { right: calc(var(--ruler-len) + 18px); text-align: right; }
+.ally-pct { left: 0; transform: translateX(-50%); }
+
+.enemy-hp-caption { right: -54px; width: 45px; text-align: center; }
+.enemy-hp { left: calc(var(--ruler-len) + 18px); text-align: left; }
+.enemy-pct { left: 0; transform: translateX(-50%); }
+
+.center-score {
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  font-size: 46px;
+  line-height: 46px;
+  letter-spacing: 1px;
+}
+
+.diff-connector {
+  position: absolute;
+  left: 488px;
+  top: 53px;
+  width: 1px;
+  height: 15px;
+  background: var(--connect);
+  box-shadow: 0 0 3px #000;
+}
+
+.diff-box {
+  left: 50%;
+  top: 68px;
+  transform: translateX(-50%);
+  min-width: 68px;
+  height: 23px;
+  line-height: 23px;
+  padding: 0 8px;
+  font-size: 14px;
+  text-align: center;
+  border: 1px solid var(--boxline);
+  border-radius: 5px;
+  background: rgba(0,0,0,.12);
+  box-shadow: inset 0 0 8px rgba(255,255,255,.05), 0 0 4px rgba(0,0,0,.85);
+}
+
+.diff-positive { color: var(--green); border-color: rgba(149, 235, 89, .8); }
+.diff-negative { color: var(--red); border-color: rgba(238, 37, 40, .8); }

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Custom HP Bar Gameface</title>
+  <link rel="stylesheet" href="./index.css" />
+</head>
+<body>
+  <div id="custom-hpbar-root" class="hpbar-root hpbar-hidden">
+    <div class="hpbar-holder">
+      <div class="bar-side ally-side">
+        <div class="ruler-labels ally-ruler-labels"></div>
+        <div class="ruler-line ally-ruler-line"></div>
+        <div class="fill-wrap ally-fill-wrap"><div class="fill ally-fill"></div></div>
+        <div class="hatch-wrap ally-hatch-wrap"><div class="hatch ally-hatch"></div></div>
+        <div class="hp-caption ally-hp-caption">ХП</div>
+        <div class="hp-number ally-hp">0</div>
+        <div class="pct-number ally-pct">0%</div>
+      </div>
+
+      <div class="center-score">0 : 0</div>
+
+      <div class="bar-side enemy-side">
+        <div class="ruler-labels enemy-ruler-labels"></div>
+        <div class="ruler-line enemy-ruler-line"></div>
+        <div class="fill-wrap enemy-fill-wrap"><div class="fill enemy-fill"></div></div>
+        <div class="hatch-wrap enemy-hatch-wrap"><div class="hatch enemy-hatch"></div></div>
+        <div class="hp-caption enemy-hp-caption">ХП</div>
+        <div class="hp-number enemy-hp">0</div>
+        <div class="pct-number enemy-pct">0%</div>
+      </div>
+
+      <div class="diff-connector"></div>
+      <div class="diff-box"><span class="diff-text">0</span></div>
+    </div>
+  </div>
+
+  <script src="./index.js"></script>
+</body>
+</html>
