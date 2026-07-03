@@ -1,28 +1,35 @@
-name: Build compiled Gameface HPBar wotmod
+name: Build Custom HPBar Gameface wotmod
+
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Mod version'
-        required: true
-        default: '0.0.5'
-permissions:
-  contents: read
+        description: "Package version"
+        required: false
+        default: "0.0.18"
+  push:
+    branches: [ main, master ]
+
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install Python 2.7
-        run: choco install python2 -y --no-progress
-      - name: Build wotmod with pyc
-        shell: pwsh
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3 for builder
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build wotmod
         run: |
-          python build.py --version "${{ inputs.version }}" --python "C:/Python27/python.exe"
-          Write-Host "Archive content:"
-          tar -tf (Get-ChildItem build/*.wotmod | Select-Object -First 1).FullName
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ]; then VERSION="0.0.18"; fi
+          python build.py --version "$VERSION"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: custom-hpbar-gameface-compiled-wotmod
+          name: custom-hpbar-gameface-wotmod
           path: build/*.wotmod
