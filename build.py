@@ -7,7 +7,7 @@ and packs .wotmod as ZIP_STORED because WoT mod packages must be uncompressed.
 
 Usage:
   python build.py
-  python build.py --version 0.0.60
+  python build.py --version 0.0.62
   python build.py --python C:/Python27/python.exe
   python build.py --no-docker
 """

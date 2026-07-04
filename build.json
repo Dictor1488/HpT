@@ -1,9 +1,9 @@
 {
   "info": {
     "id": "me.agent.custom_hpbar_gameface",
-    "version": "0.0.61",
+    "version": "0.0.62",
     "name": "Custom HPBar Gameface",
-    "description": "Custom Gameface HP bar with forced BattleFieldCtrl event bindings for HP, score and diff updates"
+    "description": "Custom Gameface HP bar with transparent stock FragCorrelationBar layout preservation"
   },
   "software": {
     "python": "C:/Python27/python.exe"

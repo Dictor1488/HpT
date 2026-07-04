@@ -25,7 +25,7 @@ except Exception:
     InputHandler = None
 
 _logger = logging.getLogger('[CustomHPBarGF]')
-print '[CustomHPBarGF] module import started v0.0.61-source'
+print '[CustomHPBarGF] module import started v0.0.62-source'
 
 RES_MAP_ITEM_ID = 'mods/custom_hpbar/CustomHPBarBattle/layoutID'
 POLL_INTERVAL = 0.20
@@ -190,7 +190,7 @@ def _isArenaReadyToShow():
     if key != _last_arena_gate_log:
         _last_arena_gate_log = key
         try:
-            _logger.info('Arena show gate v0.0.61: ready=%s reason=%s', ready, reason)
+            _logger.info('Arena show gate v0.0.62: ready=%s reason=%s', ready, reason)
         except Exception:
             pass
     return ready
@@ -791,7 +791,7 @@ def _patched_setViewComponents(self, *components):
             except Exception:
                 pass
 
-    _logger.info('BattleFieldCtrl.setViewComponents gate check v0.0.61: %s', _arenaGateState())
+    _logger.info('BattleFieldCtrl.setViewComponents gate check v0.0.62: %s', _arenaGateState())
     _forcePushTeamHealth(self)
     _forcePushScore(self)
     _forcePushIcons(self)
@@ -1015,8 +1015,8 @@ def _installFragCorrelationHook():
         if _orig_frag_onSettingsChanged is not None:
             setattr(cls, '_FragCorrelationBar__onSettingsChanged', _patched_frag_onSettingsChanged)
 
-        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.61'
-        _logger.info('FragCorrelationBar hooks installed v0.0.61')
+        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.62'
+        _logger.info('FragCorrelationBar hooks installed v0.0.62')
     except Exception:
         _logger.exception('Failed to install FragCorrelationBar hook')
 
@@ -1043,8 +1043,8 @@ def _installHook():
     else:
         _logger.warning('BattleFieldCtrl.__updateDeadVehicles not found; using listener callbacks only')
 
-    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.61'
-    _logger.info('BattleFieldCtrl hooks installed v0.0.61')
+    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.62'
+    _logger.info('BattleFieldCtrl hooks installed v0.0.62')
     _installInputHook()
 
 
