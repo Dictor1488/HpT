@@ -1,4 +1,4 @@
-name: Build Custom HPBar Gameface wotmod
+name: Build me.inq.custom_hpbar.wotmod
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
       version:
         description: "Package version"
         required: false
-        default: "0.0.46"
+        default: "1"
   push:
     branches: [ main, master ]
 
@@ -22,14 +22,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Build wotmod
+      - name: Build me.inq.custom_hpbar.wotmod
         run: |
           VERSION="${{ github.event.inputs.version }}"
-          if [ -z "$VERSION" ]; then VERSION="0.0.46"; fi
+          if [ -z "$VERSION" ]; then VERSION="1"; fi
           python build.py --version "$VERSION"
+          test -f build/me.inq.custom_hpbar.wotmod
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: custom-hpbar-gameface-wotmod
-          path: build/*.wotmod
+          name: me.inq.custom_hpbar.wotmod
