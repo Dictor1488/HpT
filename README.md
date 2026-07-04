@@ -1,4 +1,4 @@
-v0.0.61: safe rollback of broken overlay move hook. HP bar unchanged from v0.0.41; WG timer/LBZ are not moved.
+v0.0.61: safe rollback of broken overlay move hook. HP bar unchanged; WG timer/LBZ are not moved.
 
 # Custom HPBar Gameface v0.0.61
 
