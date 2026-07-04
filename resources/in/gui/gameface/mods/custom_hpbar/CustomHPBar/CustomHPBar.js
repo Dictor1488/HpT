@@ -252,7 +252,7 @@
     }
 
     function drawDiffBox(midX, yy, connFromX, connFromY, group) {
-        var bw = 76, bh = 25, rad = 6, c = 7;
+        var bw = 76, bh = 25, rad = 6;
         var bx = midX - Math.floor(bw / 2);
         var by = yy + 32;
         var diffColor = state.diff >= 0 ? C_GREEN : C_RED;
@@ -268,15 +268,33 @@
         el('path', { d: pathData, fill: 'none', stroke: C_CONNECT, 'stroke-width': 1.25, opacity: .58 }, group);
 
         el('rect', { x: bx, y: by, width: bw, height: bh, rx: rad, ry: rad, fill: 'rgba(0,0,0,.34)', stroke: C_BOXLINE, 'stroke-width': 1, opacity: 1 }, group);
-        var corners = [
-            ['M', bx, by + c, 'L', bx, by + rad, 'M', bx + rad, by, 'L', bx + c, by],
-            ['M', bx + bw - c, by, 'L', bx + bw - rad, by, 'M', bx + bw, by + rad, 'L', bx + bw, by + c],
-            ['M', bx, by + bh - c, 'L', bx, by + bh - rad, 'M', bx + rad, by + bh, 'L', bx + c, by + bh],
-            ['M', bx + bw - c, by + bh, 'L', bx + bw - rad, by + bh, 'M', bx + bw, by + bh - c, 'L', bx + bw, by + bh - rad]
-        ];
-        for (var i = 0; i < corners.length; i++) {
-            el('path', { d: corners[i].join(' '), fill: 'none', stroke: diffColor, 'stroke-width': 1.7, opacity: 1 }, group);
+
+        // Corner brackets aligned to the box outline.
+        var inset = 0.8;
+        var len = 8.5;
+        var sw = 2.35;
+        function seg(x1, y1, x2, y2) {
+            el('line', {
+                x1: x1, y1: y1, x2: x2, y2: y2,
+                stroke: diffColor,
+                'stroke-width': sw,
+                opacity: 1,
+                'stroke-linecap': 'round'
+            }, group);
         }
+        // TL
+        seg(bx + inset, by + len, bx + inset, by + 2.2);
+        seg(bx + 2.2, by + inset, bx + len, by + inset);
+        // TR
+        seg(bx + bw - inset, by + len, bx + bw - inset, by + 2.2);
+        seg(bx + bw - len, by + inset, bx + bw - 2.2, by + inset);
+        // BL
+        seg(bx + inset, by + bh - len, bx + inset, by + bh - 2.2);
+        seg(bx + 2.2, by + bh - inset, bx + len, by + bh - inset);
+        // BR
+        seg(bx + bw - inset, by + bh - len, bx + bw - inset, by + bh - 2.2);
+        seg(bx + bw - len, by + bh - inset, bx + bw - 2.2, by + bh - inset);
+
         var sign = state.diff >= 0 ? '+ ' : '- ';
         text(sign + fmt(Math.abs(state.diff)), midX, midY - 8.5, 14, 'middle', 1, C_WHITE, group);
     }
@@ -382,8 +400,8 @@
 
         var allyW = vectorTextWidth(allyHpText, 22);
         var enemyW = vectorTextWidth(enemyHpText, 22);
-        text('ХП', allyHpX - allyW / 2, yy - 22, 12, 'middle', 1, C_WHITE, g);
-        text('ХП', enemyHpX + enemyW / 2, yy - 22, 12, 'middle', 1, C_WHITE, g);
+        text('ХП', allyHpX - allyW / 2, yy - 22, 15, 'middle', 1, C_WHITE, g);
+        text('ХП', enemyHpX + enemyW / 2, yy - 22, 15, 'middle', 1, C_WHITE, g);
 
         if (SHOW_CUSTOM_SCORE) text(state.alliesFrags + ' : ' + state.enemiesFrags, midX, yy - 26, 46, 'middle', 1, C_WHITE, g);
 

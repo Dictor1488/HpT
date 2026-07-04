@@ -15,7 +15,7 @@ from gui.battle_control.arena_info import vos_collections
 from gui.Scaleform.daapi.view.battle.shared import frag_correlation_bar
 
 _logger = logging.getLogger('[CustomHPBarGF]')
-print '[CustomHPBarGF] module import started v0.0.46-source'
+print '[CustomHPBarGF] module import started v0.0.52-source'
 
 RES_MAP_ITEM_ID = 'mods/custom_hpbar/CustomHPBarBattle/layoutID'
 POLL_INTERVAL = 0.20
@@ -705,8 +705,8 @@ def _installFragCorrelationHook():
         if _orig_frag_onSettingsChanged is not None:
             setattr(cls, '_FragCorrelationBar__onSettingsChanged', _patched_frag_onSettingsChanged)
 
-        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.46'
-        _logger.info('FragCorrelationBar hooks installed v0.0.46')
+        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.52'
+        _logger.info('FragCorrelationBar hooks installed v0.0.52')
     except Exception:
         _logger.exception('Failed to install FragCorrelationBar hook')
 
@@ -733,8 +733,8 @@ def _installHook():
     else:
         _logger.warning('BattleFieldCtrl.__updateDeadVehicles not found; using listener callbacks only')
 
-    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.46'
-    _logger.info('BattleFieldCtrl hooks installed v0.0.46')
+    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.52'
+    _logger.info('BattleFieldCtrl hooks installed v0.0.52')
 
 
 _installFragCorrelationHook()
