@@ -32,6 +32,16 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=v$VERSION" >> "$GITHUB_ENV"
           python build.py --version "$VERSION"
+          echo "Built files:"
+          ls -la build
+          BUILT_FILE="$(find build -maxdepth 1 -type f -name '*.wotmod' | head -n 1)"
+          if [ -z "$BUILT_FILE" ]; then
+            echo "No .wotmod file was created"
+            exit 1
+          fi
+          if [ "$BUILT_FILE" != "build/me.inq.custom_hpbar.wotmod" ]; then
+            mv "$BUILT_FILE" build/me.inq.custom_hpbar.wotmod
+          fi
           test -f build/me.inq.custom_hpbar.wotmod
 
       - name: Upload artifact
