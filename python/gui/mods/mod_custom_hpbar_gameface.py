@@ -14,6 +14,16 @@ from gui.battle_control.controllers.battle_field_ctrl import IBattleFieldListene
 from gui.battle_control.arena_info import vos_collections
 from gui.Scaleform.daapi.view.battle.shared import frag_correlation_bar
 
+try:
+    import Keys
+except Exception:
+    Keys = None
+
+try:
+    from gui import InputHandler
+except Exception:
+    InputHandler = None
+
 _logger = logging.getLogger('[CustomHPBarGF]')
 print '[CustomHPBarGF] module import started v0.0.61-source'
 
@@ -228,6 +238,7 @@ class CustomHPBarView(ViewImpl):
         self.__alliesIcons = []
         self.__enemiesIcons = []
         self.__visible = False
+        self.__suppressed = False
         self.__scale = 1.0
 
     @property
@@ -240,7 +251,7 @@ class CustomHPBarView(ViewImpl):
         totalAlliesHp = max(alliesHp, _safe_int(self.__totalAlliesHp))
         totalEnemiesHp = max(enemiesHp, _safe_int(self.__totalEnemiesHp))
         payload = {
-            'visible': bool(self.__visible),
+            'visible': bool(self.__visible and not self.__suppressed),
             'scale': self.__scale,
             'alliesHp': alliesHp,
             'enemiesHp': enemiesHp,
@@ -281,6 +292,13 @@ class CustomHPBarView(ViewImpl):
         self.__visible = True
         self.__push()
 
+    def setSuppressed(self, suppressed):
+        self.__suppressed = bool(suppressed)
+        try:
+            self.__push()
+        except Exception:
+            pass
+
     def hide(self):
         self.__visible = False
         try:
@@ -303,6 +321,8 @@ class CustomHPBarBattleListener(IBattleFieldListener):
     def loadWindow(self):
         if not _OPENWG_OK:
             return
+        if _tab_suppressed:
+            return
         if not _isArenaReadyToShow():
             return
         if self.window is not None:
@@ -311,6 +331,7 @@ class CustomHPBarBattleListener(IBattleFieldListener):
             self.window = CustomHPBarWindow()
             self.window.load()
             self.view = self.window.content
+            self.view.setSuppressed(_tab_suppressed)
             _logger.info('Custom HPBar Gameface window loaded')
         except Exception:
             _logger.exception('Failed to load Custom HPBar Gameface window')
@@ -373,10 +394,86 @@ _orig_updateVehiclesHealth = None
 _orig_updateDeadVehicles = None
 _current_ctrl = None
 _poll_callback = None
+_tab_suppressed = False
+_input_hook_installed = False
 _orig_frag_updateTeamHealth = None
+_orig_frag_updateDeadVehicles = None
 _orig_frag_populate = None
 _orig_frag_initializeSettings = None
 _orig_frag_onSettingsChanged = None
+
+
+def _eventKeyCode(event):
+    for attr in ('key', 'keyCode'):
+        try:
+            value = getattr(event, attr, None)
+            if value is not None:
+                return value
+        except Exception:
+            pass
+    return None
+
+
+def _isTabKeyEvent(event):
+    key = _eventKeyCode(event)
+    tabKey = 15
+    try:
+        if Keys is not None:
+            tabKey = getattr(Keys, 'KEY_TAB', tabKey)
+    except Exception:
+        pass
+    return key == tabKey
+
+
+def _setTabSuppressed(value):
+    global _tab_suppressed
+    value = bool(value)
+    if _tab_suppressed == value:
+        return
+    _tab_suppressed = value
+    try:
+        if _listener is not None:
+            if _tab_suppressed:
+                _listener.destroy()
+            elif _current_ctrl is not None:
+                _forcePushTeamHealth(_current_ctrl)
+                _forcePushScore(_current_ctrl)
+                _forcePushIcons(_current_ctrl)
+    except Exception:
+        _logger.exception('Failed to update TAB suppression state')
+
+
+def _onKeyDown(event):
+    try:
+        if _isTabKeyEvent(event):
+            _setTabSuppressed(True)
+    except Exception:
+        _logger.exception('TAB key down handler failed')
+
+
+def _onKeyUp(event):
+    try:
+        if _isTabKeyEvent(event):
+            _setTabSuppressed(False)
+    except Exception:
+        _logger.exception('TAB key up handler failed')
+
+
+def _installInputHook():
+    global _input_hook_installed
+    if _input_hook_installed:
+        return
+    if InputHandler is None:
+        _logger.warning('InputHandler is not available; TAB suppression disabled')
+        return
+    try:
+        handler = InputHandler.g_instance
+        handler.onKeyDown += _onKeyDown
+        handler.onKeyUp += _onKeyUp
+        _input_hook_installed = True
+        _logger.info('InputHandler TAB suppression hook installed')
+    except Exception:
+        _logger.exception('Failed to install InputHandler TAB suppression hook')
 
 
 def _readTeamHealth(ctrl):
@@ -482,6 +579,8 @@ def _readTeamIcons(ctrl):
 
 def _forcePushTeamHealth(ctrl):
     try:
+        if _tab_suppressed:
+            return
         if not _isArenaReadyToShow():
             try:
                 if _listener is not None and _listener.view is not None:
@@ -500,6 +599,8 @@ def _forcePushTeamHealth(ctrl):
 
 def _forcePushScore(ctrl):
     try:
+        if _tab_suppressed:
+            return
         if not _isArenaReadyToShow():
             try:
                 if _listener is not None and _listener.view is not None:
@@ -518,6 +619,8 @@ def _forcePushScore(ctrl):
 
 def _forcePushIcons(ctrl):
     try:
+        if _tab_suppressed:
+            return
         if not _isArenaReadyToShow():
             try:
                 if _listener is not None and _listener.view is not None:
@@ -622,30 +725,16 @@ def _tryHideStockTeamHPComponent(component):
                 return True
             except Exception:
                 pass
-        if hasattr(component, 'as_setPosition'):
-            try:
-                component.as_setPosition(-5000, -5000)
-                _logger.info('Moved stock HP component offscreen via as_setPosition: %s', dbg)
-                return True
-            except Exception:
-                pass
-        if hasattr(component, 'setPosition'):
-            try:
-                component.setPosition(-5000, -5000)
-                _logger.info('Moved stock HP component offscreen via setPosition: %s', dbg)
-                return True
-            except Exception:
-                pass
         flash = getattr(component, 'flashObject', None)
         if flash is not None:
-            for method_name in ('as_setVisible', 'setVisible', 'as_setPosition', 'setPosition'):
+            for method_name in ('as_setVisible', 'setVisible', 'as_setAlpha', 'setAlpha'):
                 if hasattr(flash, method_name):
                     try:
                         method = getattr(flash, method_name)
                         if 'Visible' in method_name:
                             method(False)
                         else:
-                            method(-5000, -5000)
+                            method(0)
                         _logger.info('Hid stock HP component via flashObject.%s: %s', method_name, dbg)
                         return True
                     except Exception:
@@ -769,22 +858,36 @@ def _hideFlashObject(obj):
     if obj is None:
         return
     # Scaleform MovieClip-like properties.
-    for attr, value in (('_visible', False), ('visible', False), ('_alpha', 0), ('alpha', 0), ('_x', -5000), ('x', -5000), ('_y', -5000), ('y', -5000)):
+    for attr, value in (('_visible', True), ('visible', True), ('_alpha', 0), ('alpha', 0)):
         try:
             setattr(obj, attr, value)
         except Exception:
             pass
-    _tryFlashCall(obj, 'as_setVisible', False)
-    _tryFlashCall(obj, 'setVisible', False)
+    _tryFlashCall(obj, 'as_setVisible', True)
+    _tryFlashCall(obj, 'setVisible', True)
     _tryFlashCall(obj, 'as_setAlpha', 0)
     _tryFlashCall(obj, 'setAlpha', 0)
-    _tryFlashCall(obj, 'as_setPosition', -5000, -5000)
-    _tryFlashCall(obj, 'setPosition', -5000, -5000)
     _tryFlashCall(obj, 'gotoAndStop', 0)
 
 
+def _hideFlashVisualOnly(obj):
+    if obj is None:
+        return
+    # Keep visible/layout flags alive for stock mission/LBZ positioning.
+    # Only alpha is zeroed so the stock frag bar is transparent but still present.
+    for attr, value in (('_visible', True), ('visible', True), ('_alpha', 0), ('alpha', 0)):
+        try:
+            setattr(obj, attr, value)
+        except Exception:
+            pass
+    _tryFlashCall(obj, 'as_setVisible', True)
+    _tryFlashCall(obj, 'setVisible', True)
+    _tryFlashCall(obj, 'as_setAlpha', 0)
+    _tryFlashCall(obj, 'setAlpha', 0)
+
+
 def _keepFragCorrelationVehicleIconsOnly(instance):
-    """Hide WG FragCorrelationBar completely; custom Gameface draws HP, score and icons."""
+    """Keep stock FragCorrelationBar layout alive while making it transparent."""
     try:
         if instance is None:
             return
@@ -792,9 +895,9 @@ def _keepFragCorrelationVehicleIconsOnly(instance):
             _frag_instances.append(instance)
         # Flags from _FragBarViewState:
         # 1 HP values, 2 HP difference, 4 tier grouping, 8 vehicle counter, 16 HP bar.
-        # Mask 0 alone does not remove the advantage chevron on some clients,
-        # so also hide/move the Scaleform component itself.
-        mask = 0
+        # Keep the full mask so the stock top panel keeps its normal layout size.
+        # The visuals are hidden by alpha only; LBZ can still anchor to this panel.
+        mask = 31
         try:
             setattr(instance, '_FragCorrelationBar__viewSettings', mask)
         except Exception:
@@ -804,12 +907,12 @@ def _keepFragCorrelationVehicleIconsOnly(instance):
         except Exception:
             pass
         try:
-            _hideFlashObject(instance)
+            _hideFlashVisualOnly(instance)
         except Exception:
             pass
         try:
             flash = getattr(instance, 'flashObject', None)
-            _hideFlashObject(flash)
+            _hideFlashVisualOnly(flash)
         except Exception:
             pass
     except Exception:
@@ -850,6 +953,13 @@ def _patched_frag_updateTeamHealth(self, alliesHP, enemiesHP, totalAlliesHP, tot
     return None
 
 
+def _patched_frag_updateDeadVehicles(self, aliveAllies, deadAllies, aliveEnemies, deadEnemies):
+    # Do not call original: it draws the stock 0:0 score and advantage marker.
+    _keepFragCorrelationVehicleIconsOnly(self)
+    _scheduleFragHideRepeater()
+    return None
+
+
 def _patched_frag_populate(self):
     result = None
     try:
@@ -862,29 +972,42 @@ def _patched_frag_populate(self):
 
 
 def _patched_frag_initializeSettings(self):
-    _keepFragCorrelationVehicleIconsOnly(self)
-    _scheduleFragHideRepeater()
-    return None
+    result = None
+    try:
+        if _orig_frag_initializeSettings is not None:
+            result = _orig_frag_initializeSettings(self)
+    finally:
+        _keepFragCorrelationVehicleIconsOnly(self)
+        _scheduleFragHideRepeater()
+    return result
 
 
 def _patched_frag_onSettingsChanged(self, diff):
-    _keepFragCorrelationVehicleIconsOnly(self)
-    _scheduleFragHideRepeater()
-    return None
+    result = None
+    try:
+        if _orig_frag_onSettingsChanged is not None:
+            result = _orig_frag_onSettingsChanged(self, diff)
+    finally:
+        _keepFragCorrelationVehicleIconsOnly(self)
+        _scheduleFragHideRepeater()
+    return result
 
 
 def _installFragCorrelationHook():
-    global _orig_frag_updateTeamHealth, _orig_frag_populate, _orig_frag_initializeSettings, _orig_frag_onSettingsChanged
+    global _orig_frag_updateTeamHealth, _orig_frag_updateDeadVehicles, _orig_frag_populate, _orig_frag_initializeSettings, _orig_frag_onSettingsChanged
     try:
         cls = frag_correlation_bar.FragCorrelationBar
         if _orig_frag_updateTeamHealth is not None:
             return
         _orig_frag_updateTeamHealth = cls.updateTeamHealth
+        _orig_frag_updateDeadVehicles = getattr(cls, 'updateDeadVehicles', None)
         _orig_frag_populate = getattr(cls, '_populate', None)
         _orig_frag_initializeSettings = getattr(cls, '_FragCorrelationBar__initializeSettings', None)
         _orig_frag_onSettingsChanged = getattr(cls, '_FragCorrelationBar__onSettingsChanged', None)
 
         cls.updateTeamHealth = _patched_frag_updateTeamHealth
+        if _orig_frag_updateDeadVehicles is not None:
+            cls.updateDeadVehicles = _patched_frag_updateDeadVehicles
         if _orig_frag_populate is not None:
             cls._populate = _patched_frag_populate
         if _orig_frag_initializeSettings is not None:
@@ -922,6 +1045,7 @@ def _installHook():
 
     print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.61'
     _logger.info('BattleFieldCtrl hooks installed v0.0.61')
+    _installInputHook()
 
 
 _installFragCorrelationHook()
