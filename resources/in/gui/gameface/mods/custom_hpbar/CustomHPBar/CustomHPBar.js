@@ -15,7 +15,7 @@
     var HATCH_STEP = 3.05;
     var HATCH_SLANT = 5.8;
     var GAMEFACE_SCALE_FIX = 0.82;
-    var SHOW_CUSTOM_SCORE = false;
+    var SHOW_CUSTOM_SCORE = true;
     var SHOW_CUSTOM_ICONS = true;
     var ICON_SIZE = 22;
     var ICON_GAP = 0;
@@ -97,7 +97,7 @@
         return Math.max(0, w - size * 0.08);
     }
     function drawSeg(parent, x1, y1, x2, y2, size, color, alpha) {
-        return line(x1, y1, x2, y2, color || C_WHITE, Math.max(1, size * 0.085), alpha === undefined ? 1 : alpha, parent, { 'stroke-linecap': 'round', filter: 'url(#vecShadow)' });
+        return line(x1, y1, x2, y2, color || C_WHITE, Math.max(1.1, size * 0.075), alpha === undefined ? 1 : alpha, parent, { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', filter: 'url(#vecShadow)' });
     }
     function drawDot(parent, cx, cy, r, color, alpha) {
         return el('circle', { cx: cx, cy: cy, r: r, fill: color || C_WHITE, opacity: alpha === undefined ? 1 : alpha, filter: 'url(#vecShadow)' }, parent || svg);
@@ -126,6 +126,76 @@
         if (ch === 'P') { drawSeg(parent, x+w*.16, y+h*.85, x+w*.16, y+h*.15, size, color, alpha); drawSeg(parent, x+w*.16, y+h*.15, x+w*.75, y+h*.15, size, color, alpha); drawSeg(parent, x+w*.75, y+h*.15, x+w*.75, y+h*.50, size, color, alpha); drawSeg(parent, x+w*.16, y+h*.50, x+w*.75, y+h*.50, size, color, alpha); return w; }
         return w;
     }
+    function vectorText(value, x, y, size, anchor, alpha, color, parent) {
+        value = String(value);
+        var width = vectorTextWidth(value, size);
+        var startX = x;
+        if (anchor === 'middle') startX = x - width / 2;
+        else if (anchor === 'end') startX = x - width;
+        var cx = startX;
+        for (var i = 0; i < value.length; i++) {
+            var ch = value.charAt(i);
+            drawGlyph(parent || svg, ch, cx, y, size, color || C_WHITE, alpha === undefined ? 1 : alpha);
+            cx += glyphWidth(ch, size) + size * 0.08;
+        }
+    }
+    function scoreGlyphWidth(ch, size) {
+        if (ch === ':') return size * 0.22;
+        return size * 0.58;
+    }
+    function scoreTextWidth(value, size) {
+        value = String(value);
+        var w = 0;
+        for (var i = 0; i < value.length; i++) w += scoreGlyphWidth(value.charAt(i), size) + size * 0.11;
+        return Math.max(0, w - size * 0.11);
+    }
+    function scorePath(parent, d, x, y, size, color, alpha) {
+        return el('path', {
+            d: d,
+            transform: 'translate(' + x + ',' + y + ') scale(' + size + ')',
+            fill: 'none',
+            stroke: color || C_WHITE,
+            'stroke-width': 0.118,
+            'stroke-linecap': 'round',
+            'stroke-linejoin': 'round',
+            opacity: alpha === undefined ? 1 : alpha,
+            filter: 'url(#vecShadow)'
+        }, parent || svg);
+    }
+    function drawScoreGlyph(parent, ch, x, y, size, color, alpha) {
+        var paths = {
+            '0': 'M.29 .13 C.13 .24 .11 .73 .30 .87 C.42 .96 .64 .96 .76 .84 C.91 .69 .90 .29 .73 .15 C.60 .05 .41 .05 .29 .13',
+            '1': 'M.34 .30 L.55 .12 L.55 .88 M.36 .88 L.74 .88',
+            '2': 'M.20 .29 C.28 .09 .70 .07 .80 .28 C.91 .52 .31 .60 .21 .88 L.82 .88',
+            '3': 'M.22 .16 C.74 .03 .91 .36 .54 .50 C.94 .58 .80 .98 .22 .84',
+            '4': 'M.78 .88 L.78 .12 M.78 .62 L.20 .62 L.66 .13',
+            '5': 'M.80 .13 L.30 .13 L.24 .45 C.64 .34 .91 .53 .80 .77 C.69 .98 .34 .95 .20 .78',
+            '6': 'M.78 .19 C.49 .03 .17 .28 .16 .61 C.15 .89 .39 .98 .61 .88 C.86 .77 .78 .48 .54 .47 C.35 .46 .18 .58 .17 .70',
+            '7': 'M.19 .13 L.84 .13 L.45 .88',
+            '8': 'M.50 .50 C.28 .48 .20 .35 .26 .21 C.34 .04 .67 .04 .76 .21 C.83 .35 .72 .48 .50 .50 C.24 .53 .16 .72 .28 .86 C.39 .99 .63 .99 .75 .86 C.88 .71 .76 .53 .50 .50',
+            '9': 'M.24 .81 C.53 .98 .84 .73 .84 .40 C.85 .13 .61 .04 .39 .14 C.15 .25 .22 .54 .46 .55 C.65 .56 .82 .44 .83 .32'
+        };
+        if (ch === ':') {
+            drawDot(parent, x + size * 0.11, y + size * 0.34, size * 0.048, color, alpha);
+            drawDot(parent, x + size * 0.11, y + size * 0.66, size * 0.048, color, alpha);
+            return scoreGlyphWidth(ch, size);
+        }
+        if (paths[ch]) scorePath(parent, paths[ch], x, y, size, color, alpha);
+        return scoreGlyphWidth(ch, size);
+    }
+    function scoreText(value, x, y, size, anchor, alpha, color, parent) {
+        value = String(value);
+        var width = scoreTextWidth(value, size);
+        var startX = x;
+        if (anchor === 'middle') startX = x - width / 2;
+        else if (anchor === 'end') startX = x - width;
+        var cx = startX;
+        for (var i = 0; i < value.length; i++) {
+            var ch = value.charAt(i);
+            cx += drawScoreGlyph(parent || svg, ch, cx, y, size, color || C_WHITE, alpha === undefined ? 1 : alpha) + size * 0.11;
+        }
+    }
+
     function text(value, x, y, size, anchor, alpha, color, parent) {
         value = String(value);
         var baseline = y + size * 0.82;
@@ -138,7 +208,7 @@
             'font-family': 'Inter, Segoe UI, Roboto, Arial, sans-serif',
             'font-weight': size >= 24 ? 800 : 700,
             'text-anchor': (anchor === 'end' ? 'end' : (anchor === 'middle' ? 'middle' : 'start')),
-            'letter-spacing': size >= 24 ? '-0.02em' : '-0.01em',
+            'letter-spacing': '0',
             filter: 'url(#vecShadow)'
         }, parent || svg);
         txt.textContent = value;
@@ -403,7 +473,12 @@
         text('ХП', allyHpX - allyW / 2, yy - 22, 15, 'middle', 1, C_WHITE, g);
         text('ХП', enemyHpX + enemyW / 2, yy - 22, 15, 'middle', 1, C_WHITE, g);
 
-        if (SHOW_CUSTOM_SCORE) text(state.alliesFrags + ' : ' + state.enemiesFrags, midX, yy - 26, 46, 'middle', 1, C_WHITE, g);
+        if (SHOW_CUSTOM_SCORE) {
+            var scoreG = el('g', { transform: 'translate(' + midX + ',' + (yy - 12) + ') scale(1.35)' }, g);
+            text(String(state.alliesFrags), -24, 0, 22, 'middle', 1, C_WHITE, scoreG);
+            text(':', 0, 0, 22, 'middle', 1, C_WHITE, scoreG);
+            text(String(state.enemiesFrags), 24, 0, 22, 'middle', 1, C_WHITE, scoreG);
+        }
 
         var hatchAnchorX = allyInner;
         var hatchBottomY = yy + FILL_H / 2 + HATCH_GAP + HATCH_H;

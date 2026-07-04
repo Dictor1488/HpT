@@ -15,12 +15,14 @@ from gui.battle_control.arena_info import vos_collections
 from gui.Scaleform.daapi.view.battle.shared import frag_correlation_bar
 
 _logger = logging.getLogger('[CustomHPBarGF]')
-print '[CustomHPBarGF] module import started v0.0.52-source'
+print '[CustomHPBarGF] module import started v0.0.61-source'
 
 RES_MAP_ITEM_ID = 'mods/custom_hpbar/CustomHPBarBattle/layoutID'
 POLL_INTERVAL = 0.20
 HIDE_STOCK_TEAM_HP = True
 FORCE_ONLY_CUSTOM_LISTENER = False
+ARENA_SHOW_MIN_PERIOD = 1
+_last_arena_gate_log = None
 
 
 try:
@@ -45,6 +47,143 @@ def _percent(current, total):
     if total <= 0:
         return 100
     return max(0, min(100, int(round(float(current) / float(total) * 100.0))))
+
+
+def _getArenaVehicle(player):
+    """Best-effort loading-screen guard for period 1.
+
+    The loading screen may already have arena.period == 1, so do not use a fixed
+    timer. Only allow the bar once the player's vehicle is attached to the 3D
+    scene. Python 2.7 compatible.
+    """
+    try:
+        vehicle = None
+        if hasattr(player, 'getVehicleAttached'):
+            try:
+                vehicle = player.getVehicleAttached()
+            except Exception:
+                vehicle = None
+        if vehicle is None:
+            try:
+                vehicle = getattr(player, 'vehicle', None)
+            except Exception:
+                vehicle = None
+        return vehicle
+    except Exception:
+        pass
+
+    return None
+
+
+def _hasArenaVehicleAttached(player):
+    return _getArenaVehicle(player) is not None
+
+
+def _vehicleLooksBattleReady(vehicle):
+    if vehicle is None:
+        return False
+    for name in ('isStarted', 'isAlive'):
+        try:
+            attr = getattr(vehicle, name, None)
+            if callable(attr):
+                if attr() is False:
+                    return False
+            elif attr is False:
+                return False
+        except Exception:
+            pass
+    try:
+        health = getattr(vehicle, 'health', None)
+        if health is not None and int(health) <= 0:
+            return False
+    except Exception:
+        pass
+    return True
+
+
+def _hasBattleInputActive(player):
+    try:
+        inputHandler = getattr(player, 'inputHandler', None)
+    except Exception:
+        inputHandler = None
+    if inputHandler is None:
+        return False
+
+    try:
+        ctrl = getattr(inputHandler, 'ctrl', None)
+    except Exception:
+        ctrl = None
+    if ctrl is None:
+        return False
+
+    for attr in ('curVehicleID', 'vehicleID', 'controlledVehicleID'):
+        try:
+            value = getattr(ctrl, attr, None)
+            if value:
+                return True
+        except Exception:
+            pass
+
+    for method in ('getCameraType', 'getControlModeName', 'getModeName'):
+        try:
+            fn = getattr(ctrl, method, None)
+            if callable(fn):
+                value = fn()
+                if value:
+                    return True
+        except Exception:
+            pass
+
+    try:
+        camera = getattr(inputHandler, 'camera', None)
+        if camera is not None and ctrl.__class__.__name__.lower() not in ('', 'none'):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _arenaGateState():
+    """Return (ready, reason). Start from period 1 only after the battle scene exists."""
+    try:
+        player = BigWorld.player()
+    except Exception:
+        return (False, 'no_player')
+    try:
+        arena = getattr(player, 'arena', None)
+    except Exception:
+        arena = None
+    if arena is None:
+        return (False, 'no_arena')
+    try:
+        period = int(getattr(arena, 'period', -1))
+    except Exception:
+        period = -1
+    if period < ARENA_SHOW_MIN_PERIOD:
+        return (False, 'arena_period_%s' % period)
+    if period >= 2:
+        return (True, 'arena_period_%s' % period)
+
+    vehicle = _getArenaVehicle(player)
+    if vehicle is None:
+        return (False, 'arena_period_1_no_vehicle')
+    if not _vehicleLooksBattleReady(vehicle):
+        return (False, 'arena_period_1_vehicle_not_ready')
+    if not _hasBattleInputActive(player):
+        return (False, 'arena_period_1_loading_screen')
+    return (True, 'arena_period_1_battle_ready')
+
+def _isArenaReadyToShow():
+    global _last_arena_gate_log
+    ready, reason = _arenaGateState()
+    key = '%s:%s' % (ready, reason)
+    if key != _last_arena_gate_log:
+        _last_arena_gate_log = key
+        try:
+            _logger.info('Arena show gate v0.0.61: ready=%s reason=%s', ready, reason)
+        except Exception:
+            pass
+    return ready
 
 
 class CustomHPBarModel(ViewModel):
@@ -164,6 +303,8 @@ class CustomHPBarBattleListener(IBattleFieldListener):
     def loadWindow(self):
         if not _OPENWG_OK:
             return
+        if not _isArenaReadyToShow():
+            return
         if self.window is not None:
             return
         try:
@@ -194,6 +335,13 @@ class CustomHPBarBattleListener(IBattleFieldListener):
         pass
 
     def updateTeamHealth(self, alliesHP, enemiesHP, totalAlliesHP, totalEnemiesHP):
+        if not _isArenaReadyToShow():
+            if self.view is not None:
+                try:
+                    self.view.hide()
+                except Exception:
+                    pass
+            return
         self.loadWindow()
         if self.view is not None:
             try:
@@ -203,6 +351,13 @@ class CustomHPBarBattleListener(IBattleFieldListener):
 
     def updateDeadVehicles(self, aliveAllies, deadAllies, aliveEnemies, deadEnemies):
         # Battle Observer default scoreboard logic: left score = dead enemies, right score = dead allies.
+        if not _isArenaReadyToShow():
+            if self.view is not None:
+                try:
+                    self.view.hide()
+                except Exception:
+                    pass
+            return
         self.loadWindow()
         if self.view is not None:
             try:
@@ -327,6 +482,13 @@ def _readTeamIcons(ctrl):
 
 def _forcePushTeamHealth(ctrl):
     try:
+        if not _isArenaReadyToShow():
+            try:
+                if _listener is not None and _listener.view is not None:
+                    _listener.view.hide()
+            except Exception:
+                pass
+            return
         listener = _getListener()
         listener.loadWindow()
         if listener.view is not None:
@@ -338,6 +500,13 @@ def _forcePushTeamHealth(ctrl):
 
 def _forcePushScore(ctrl):
     try:
+        if not _isArenaReadyToShow():
+            try:
+                if _listener is not None and _listener.view is not None:
+                    _listener.view.hide()
+            except Exception:
+                pass
+            return
         listener = _getListener()
         listener.loadWindow()
         if listener.view is not None:
@@ -349,6 +518,13 @@ def _forcePushScore(ctrl):
 
 def _forcePushIcons(ctrl):
     try:
+        if not _isArenaReadyToShow():
+            try:
+                if _listener is not None and _listener.view is not None:
+                    _listener.view.hide()
+            except Exception:
+                pass
+            return
         listener = _getListener()
         listener.loadWindow()
         if listener.view is not None:
@@ -526,6 +702,7 @@ def _patched_setViewComponents(self, *components):
             except Exception:
                 pass
 
+    _logger.info('BattleFieldCtrl.setViewComponents gate check v0.0.61: %s', _arenaGateState())
     _forcePushTeamHealth(self)
     _forcePushScore(self)
     _forcePushIcons(self)
@@ -607,7 +784,7 @@ def _hideFlashObject(obj):
 
 
 def _keepFragCorrelationVehicleIconsOnly(instance):
-    """Hide WG FragCorrelationBar; custom Gameface draws HP, score and icons."""
+    """Hide WG FragCorrelationBar completely; custom Gameface draws HP, score and icons."""
     try:
         if instance is None:
             return
@@ -615,7 +792,8 @@ def _keepFragCorrelationVehicleIconsOnly(instance):
             _frag_instances.append(instance)
         # Flags from _FragBarViewState:
         # 1 HP values, 2 HP difference, 4 tier grouping, 8 vehicle counter, 16 HP bar.
-        # Hide stock FragCorrelationBar completely; custom Gameface draws score and icons.
+        # Mask 0 alone does not remove the advantage chevron on some clients,
+        # so also hide/move the Scaleform component itself.
         mask = 0
         try:
             setattr(instance, '_FragCorrelationBar__viewSettings', mask)
@@ -625,8 +803,17 @@ def _keepFragCorrelationVehicleIconsOnly(instance):
             instance.as_updateViewSettingS(mask)
         except Exception:
             pass
+        try:
+            _hideFlashObject(instance)
+        except Exception:
+            pass
+        try:
+            flash = getattr(instance, 'flashObject', None)
+            _hideFlashObject(flash)
+        except Exception:
+            pass
     except Exception:
-        _logger.exception('Failed to keep FragCorrelationBar vehicle icons only')
+        _logger.exception('Failed to hide FragCorrelationBar')
 
 
 def _hideFragTick():
@@ -705,8 +892,8 @@ def _installFragCorrelationHook():
         if _orig_frag_onSettingsChanged is not None:
             setattr(cls, '_FragCorrelationBar__onSettingsChanged', _patched_frag_onSettingsChanged)
 
-        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.52'
-        _logger.info('FragCorrelationBar hooks installed v0.0.52')
+        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.61'
+        _logger.info('FragCorrelationBar hooks installed v0.0.61')
     except Exception:
         _logger.exception('Failed to install FragCorrelationBar hook')
 
@@ -733,8 +920,8 @@ def _installHook():
     else:
         _logger.warning('BattleFieldCtrl.__updateDeadVehicles not found; using listener callbacks only')
 
-    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.52'
-    _logger.info('BattleFieldCtrl hooks installed v0.0.52')
+    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.61'
+    _logger.info('BattleFieldCtrl hooks installed v0.0.61')
 
 
 _installFragCorrelationHook()
