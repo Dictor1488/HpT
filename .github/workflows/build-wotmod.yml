@@ -6,7 +6,7 @@ on:
       version:
         description: "Package version"
         required: false
-        default: "0.0.18"
+        default: "0.0.46"
   push:
     branches: [ main, master ]
 
@@ -25,7 +25,7 @@ jobs:
       - name: Build wotmod
         run: |
           VERSION="${{ github.event.inputs.version }}"
-          if [ -z "$VERSION" ]; then VERSION="0.0.18"; fi
+          if [ -z "$VERSION" ]; then VERSION="0.0.46"; fi
           python build.py --version "$VERSION"
 
       - name: Upload artifact
