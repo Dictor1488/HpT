@@ -1,0 +1,8 @@
+[
+  {
+    "itemID": "mods/custom_hpbar/CustomHPBarBattle/layoutID",
+    "type": "Layout",
+    "path": "coui://gui/gameface/mods/custom_hpbar/CustomHPBar/CustomHPBarBattle.html",
+    "parameters": { "extension": "", "entrance": "CustomHPBarBattle", "impl": "gameface" }
+  }
+]

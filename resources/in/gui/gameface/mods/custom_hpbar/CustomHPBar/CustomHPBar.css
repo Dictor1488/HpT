@@ -1,0 +1,34 @@
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+}
+* { box-sizing: border-box; }
+#hpbar-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+#hpbar-root.hidden { display: none; }
+#hpbar-holder {
+  position: absolute;
+  left: 50%;
+  top: -8px;
+  width: 1052px;
+  height: 118px;
+  transform: translateX(-50%) scale(0.82);
+  transform-origin: top center;
+  pointer-events: none;
+  overflow: visible;
+}
+#hud {
+  display: block;
+  width: 1052px;
+  height: 118px;
+  overflow: visible;
+}

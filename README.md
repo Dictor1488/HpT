@@ -1,63 +1,48 @@
-# Custom HPBar Gameface — source project v0.0.18
+v0.0.46: safe rollback of broken overlay move hook. HP bar unchanged from v0.0.41; WG timer/LBZ are not moved.
 
-Це структурований GitHub-проєкт без готових `.pyc` у вихідному коді.
-Python лежить як звичайний `.py`, щоб ти не втратив код. Builder сам компілює `.py` у Python 2.7 `.pyc` і пакує `.wotmod`.
+# Custom HPBar Gameface v0.0.46
 
-## Структура
+Source project for WoT Gameface HP bar. Python source is kept as `.py`; builder compiles it to `.pyc` only during packaging.
 
-```text
-python/gui/mods/mod_custom_hpbar_gameface.py
-resources/in/gui/gameface/mods/custom_hpbar/CustomHPBar/CustomHPBarBattle.html
-resources/in/gui/gameface/mods/custom_hpbar/CustomHPBar/CustomHPBar.css
-resources/in/gui/gameface/mods/custom_hpbar/CustomHPBar/CustomHPBar.js
-resources/in/mods/configs/res_map/custom_hpbar_gameface.json
-build.py
-build.json
-.github/workflows/build-wotmod.yml
-```
+This version uses SVG/DOM rendering instead of canvas, so the geometry is much closer to the original `HudBarInjector_visualization.html` while staying compatible with Gameface overlay rendering.
 
-## Локальна збірка
-
-Варіант 1 — якщо є `C:/Python27/python.exe` або змінна `PYTHON27`:
+## Build
 
 ```bat
-python build.py --version 0.0.18
+python build.py --version 0.0.46
 ```
 
-Варіант 2 — PowerShell з явним Python 2.7:
+Or run GitHub Actions: **Build Custom HPBar Gameface wotmod**.
 
-```powershell
-.uild_local.ps1 -Version 0.0.18 -Python27 "C:/Python27/python.exe"
-```
-
-Варіант 3 — Docker fallback. Якщо Python 2.7 не знайдений, `build.py` сам спробує Docker image `python:2.7`.
-
-```bash
-python build.py --version 0.0.18
-```
-
-Готовий файл буде тут:
+Output:
 
 ```text
-build/me.agent.custom_hpbar_gameface_0.0.18.wotmod
+build/me.agent.custom_hpbar_gameface_0.0.46.wotmod
 ```
 
-## GitHub Actions
 
-Після push відкрий:
+## v0.0.46 event bindings
 
-```text
-Actions → Build Custom HPBar Gameface wotmod → Run workflow
-```
+Python now patches BattleFieldCtrl private update methods too: `__updateVehiclesHealth` and `__updateDeadVehicles`. This forces payload refresh whenever WoT recalculates team HP or score, even if the listener is not called through `_viewComponents`.
 
-Workflow використовує Python 3 для builder і Docker `python:2.7` для компіляції `.py` у `.pyc`.
 
-## Важливо для тесту
+## v0.0.46
 
-У `World_of_Tanks/mods/2.3.0.1/` залишай тільки один файл нашого моду, наприклад:
+Adds direct hook for `gui.Scaleform.daapi.view.battle.shared.frag_correlation_bar.FragCorrelationBar` to suppress the stock WG top HP/frag correlation bar.
 
-```text
-me.agent.custom_hpbar_gameface_0.0.18.wotmod
-```
 
-Старі `me.agent.custom_hpbar_gameface_0.0.*.wotmod` краще видаляти, щоб ресурси не перекривались.
+## FIXED archive
+Default build scripts now use `0.0.46`, and Python contains the direct `FragCorrelationBar` hook.
+
+
+## v0.0.46
+- Stock FragCorrelationBar is kept only for vehicle icons/counter (mask=8).
+- Stock HP/diff/advantage animation suppressed by not forwarding as_updateHPS.
+- Custom 0:0 score restored.
+- Custom PNG icon row disabled for now to avoid chaotic duplicate icons.
+
+
+## v0.0.46 notes
+- Stock FragCorrelationBar mask is now 0, so stock score/HP/advantage animation should be hidden.
+- Custom score and custom ordered icons are drawn by Gameface.
+- PlayersPanel is not suppressed.

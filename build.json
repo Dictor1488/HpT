@@ -1,0 +1,16 @@
+{
+  "info": {
+    "id": "me.agent.custom_hpbar_gameface",
+    "version": "0.0.46",
+    "name": "Custom HPBar Gameface",
+    "description": "Custom Gameface HP bar with forced BattleFieldCtrl event bindings for HP, score and diff updates"
+  },
+  "software": {
+    "python": "C:/Python27/python.exe"
+  },
+  "package": {
+    "compression": "stored",
+    "compilePython": true,
+    "copyPythonSource": false
+  }
+}
