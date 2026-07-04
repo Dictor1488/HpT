@@ -10,6 +10,9 @@ on:
   push:
     branches: [ main, master ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,6 +29,8 @@ jobs:
         run: |
           VERSION="${{ github.event.inputs.version }}"
           if [ -z "$VERSION" ]; then VERSION="1"; fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=v$VERSION" >> "$GITHUB_ENV"
           python build.py --version "$VERSION"
           test -f build/me.inq.custom_hpbar.wotmod
 
@@ -33,3 +38,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: me.inq.custom_hpbar.wotmod
+          path: build/me.inq.custom_hpbar.wotmod
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: INQ Custom HPBar ${{ env.TAG }}
+          body_path: docs/RELEASE_1.md
+          files: build/me.inq.custom_hpbar.wotmod
+          fail_on_unmatched_files: true
