@@ -14,7 +14,13 @@
     var SEG_GAP = 2.5;
     var HATCH_STEP = 3.05;
     var HATCH_SLANT = 5.8;
-    var GAMEFACE_SCALE_FIX = 0.82;
+    // Base scale tuned for 1080p (1920x1080). The stock game HUD scales its
+    // panels with screen height, so to keep the custom bar the same physical
+    // size on higher resolutions (1440p/2K, 4K) we scale this value by the
+    // ratio of the current screen height to the 1080p reference height.
+    var GAMEFACE_SCALE_BASE = 0.82;
+    var REFERENCE_HEIGHT = 1080;
+    var GAMEFACE_SCALE_FIX = GAMEFACE_SCALE_BASE; // recomputed per-frame in resizeWindow()
     var SHOW_CUSTOM_SCORE = true;
     var SHOW_CUSTOM_ICONS = true;
     var ICON_SIZE = 22;
@@ -234,15 +240,30 @@
 
     function resizeWindow() {
         var clientWidth = BASE_WIDTH;
+        var clientHeight = REFERENCE_HEIGHT;
         if (window.viewEnv && viewEnv.getClientSizePx) {
             try {
                 var c = viewEnv.getClientSizePx();
                 clientWidth = Math.max(clientWidth, Math.round(num(c.width, BASE_WIDTH)));
+                clientHeight = Math.max(1, Math.round(num(c.height, REFERENCE_HEIGHT)));
             } catch (e) {}
         }
         if (typeof window.innerWidth === 'number' && window.innerWidth > 0) {
             clientWidth = Math.max(clientWidth, Math.round(window.innerWidth));
         }
+        if (typeof window.innerHeight === 'number' && window.innerHeight > 0) {
+            clientHeight = Math.max(clientHeight, Math.round(window.innerHeight));
+        }
+
+        // Adaptive scale: keep the bar the same physical size as on 1080p by
+        // scaling with screen height. At 1080p ratio = 1 -> 0.82 (unchanged).
+        // At 1440p ratio ~= 1.333 -> ~1.09. At 2160p -> ~1.64.
+        var ratio = clientHeight / REFERENCE_HEIGHT;
+        // Clamp to a sane range so odd reported sizes can't blow up the bar.
+        if (ratio < 0.75) ratio = 0.75;
+        if (ratio > 2.5) ratio = 2.5;
+        GAMEFACE_SCALE_FIX = GAMEFACE_SCALE_BASE * ratio;
+
         var height = Math.ceil(BASE_HEIGHT * GAMEFACE_SCALE_FIX) + 18;
         var size = clientWidth + 'x' + height;
         if (size !== lastSize && window.viewEnv && viewEnv.resizeViewPx) {

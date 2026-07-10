@@ -21,6 +21,8 @@ html, body {
   top: -8px;
   width: 1052px;
   height: 118px;
+  /* Initial scale for 1080p. CustomHPBar.js recomputes this per resolution in
+     resizeWindow() (e.g. ~1.09 at 1440p/2K), so this is just the pre-JS default. */
   transform: translateX(-50%) scale(0.82);
   transform-origin: top center;
   pointer-events: none;
