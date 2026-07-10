@@ -25,7 +25,7 @@ except Exception:
     InputHandler = None
 
 _logger = logging.getLogger('[CustomHPBarGF]')
-print '[CustomHPBarGF] module import started v0.0.62-source'
+print '[CustomHPBarGF] module import started v0.0.63-source'
 
 RES_MAP_ITEM_ID = 'mods/custom_hpbar/CustomHPBarBattle/layoutID'
 POLL_INTERVAL = 0.20
@@ -190,7 +190,7 @@ def _isArenaReadyToShow():
     if key != _last_arena_gate_log:
         _last_arena_gate_log = key
         try:
-            _logger.info('Arena show gate v0.0.62: ready=%s reason=%s', ready, reason)
+            _logger.info('Arena show gate v0.0.63: ready=%s reason=%s', ready, reason)
         except Exception:
             pass
     return ready
@@ -791,7 +791,7 @@ def _patched_setViewComponents(self, *components):
             except Exception:
                 pass
 
-    _logger.info('BattleFieldCtrl.setViewComponents gate check v0.0.62: %s', _arenaGateState())
+    _logger.info('BattleFieldCtrl.setViewComponents gate check v0.0.63: %s', _arenaGateState())
     _forcePushTeamHealth(self)
     _forcePushScore(self)
     _forcePushIcons(self)
@@ -800,9 +800,21 @@ def _patched_setViewComponents(self, *components):
 
 
 def _patched_stopControl(self):
-    global _listener, _current_ctrl
+    global _listener, _current_ctrl, _frag_hide_callback
     _stopPoll()
     _current_ctrl = None
+    # Cancel any pending frag-bar settle pass and drop references from this battle.
+    try:
+        if _frag_hide_callback is not None:
+            BigWorld.cancelCallback(_frag_hide_callback)
+    except Exception:
+        pass
+    _frag_hide_callback = None
+    try:
+        del _frag_instances[:]
+        _frag_hidden_instances.clear()
+    except Exception:
+        pass
     try:
         if _listener is not None:
             _listener.destroy()
@@ -886,13 +898,28 @@ def _hideFlashVisualOnly(obj):
     _tryFlashCall(obj, 'setAlpha', 0)
 
 
-def _keepFragCorrelationVehicleIconsOnly(instance):
-    """Keep stock FragCorrelationBar layout alive while making it transparent."""
+# Instances whose stock frag bar is already transparent. We avoid re-applying the
+# hide on every HP update, because Scaleform as_updateViewSettingS + alpha writes
+# on a 0.05s repeater flooded the top panel and caused it to freeze/stutter.
+_frag_hidden_instances = set()
+
+
+def _keepFragCorrelationVehicleIconsOnly(instance, force=False):
+    """Keep stock FragCorrelationBar layout alive while making it transparent.
+
+    Applies the transparent state only once per instance unless force=True.
+    This is idempotent from the game's point of view but we must not spam
+    Scaleform every frame, so repeated no-op calls are skipped.
+    """
     try:
         if instance is None:
             return
         if instance not in _frag_instances:
             _frag_instances.append(instance)
+        # Skip if this instance is already hidden and we are not forcing a refresh
+        # (e.g. after a real settings change that could have reset the state).
+        if not force and instance in _frag_hidden_instances:
+            return
         # Flags from _FragBarViewState:
         # 1 HP values, 2 HP difference, 4 tier grouping, 8 vehicle counter, 16 HP bar.
         # Keep the full mask so the stock top panel keeps its normal layout size.
@@ -915,16 +942,23 @@ def _keepFragCorrelationVehicleIconsOnly(instance):
             _hideFlashVisualOnly(flash)
         except Exception:
             pass
+        _frag_hidden_instances.add(instance)
     except Exception:
         _logger.exception('Failed to hide FragCorrelationBar')
 
 
 def _hideFragTick():
+    """One-shot settle pass after a real settings/populate event.
+
+    Runs a small, bounded number of forced re-hides so the transparent state
+    survives Scaleform re-initialization, then stops. It does NOT run on every
+    HP update, so it can no longer flood the top panel during battle.
+    """
     global _frag_hide_callback, _frag_hide_ticks_left
     _frag_hide_callback = None
     try:
         for inst in list(_frag_instances):
-            _keepFragCorrelationVehicleIconsOnly(inst)
+            _keepFragCorrelationVehicleIconsOnly(inst, force=True)
     except Exception:
         _logger.exception('FragCorrelationBar repeated hide failed')
     _frag_hide_ticks_left -= 1
@@ -936,27 +970,36 @@ def _hideFragTick():
 
 
 def _scheduleFragHideRepeater():
+    """Schedule a short, bounded settle pass.
+
+    Only starts a new repeater if one is not already pending and does not reset
+    the tick counter on every call, so frequent HP updates cannot keep the
+    repeater alive indefinitely.
+    """
     global _frag_hide_callback, _frag_hide_ticks_left
-    _frag_hide_ticks_left = 50
-    if _frag_hide_callback is None:
-        try:
-            _frag_hide_callback = BigWorld.callback(0.05, _hideFragTick)
-        except Exception:
-            pass
+    if _frag_hide_callback is not None:
+        # A settle pass is already in flight; do not restart it.
+        return
+    _frag_hide_ticks_left = 4
+    try:
+        _frag_hide_callback = BigWorld.callback(0.05, _hideFragTick)
+    except Exception:
+        pass
 
 
 def _patched_frag_updateTeamHealth(self, alliesHP, enemiesHP, totalAlliesHP, totalEnemiesHP):
     # Do not call original as_updateHPS: this removes stock HP bars, 0 leftovers and advantage animation.
     # Do not call original as_updateHPS and keep stock FragCorrelationBar hidden.
+    # Apply the hide once (idempotent). Do NOT start the repeater here: this is
+    # called on every HP change during battle and previously flooded the panel.
     _keepFragCorrelationVehicleIconsOnly(self)
-    _scheduleFragHideRepeater()
     return None
 
 
 def _patched_frag_updateDeadVehicles(self, aliveAllies, deadAllies, aliveEnemies, deadEnemies):
     # Do not call original: it draws the stock 0:0 score and advantage marker.
+    # Idempotent hide only; no repeater on routine updates.
     _keepFragCorrelationVehicleIconsOnly(self)
-    _scheduleFragHideRepeater()
     return None
 
 
@@ -966,7 +1009,9 @@ def _patched_frag_populate(self):
         if _orig_frag_populate is not None:
             result = _orig_frag_populate(self)
     finally:
-        _keepFragCorrelationVehicleIconsOnly(self)
+        # Real (re)creation of the bar: force a fresh hide and run a short settle pass.
+        _frag_hidden_instances.discard(self)
+        _keepFragCorrelationVehicleIconsOnly(self, force=True)
         _scheduleFragHideRepeater()
     return result
 
@@ -977,7 +1022,8 @@ def _patched_frag_initializeSettings(self):
         if _orig_frag_initializeSettings is not None:
             result = _orig_frag_initializeSettings(self)
     finally:
-        _keepFragCorrelationVehicleIconsOnly(self)
+        _frag_hidden_instances.discard(self)
+        _keepFragCorrelationVehicleIconsOnly(self, force=True)
         _scheduleFragHideRepeater()
     return result
 
@@ -988,7 +1034,9 @@ def _patched_frag_onSettingsChanged(self, diff):
         if _orig_frag_onSettingsChanged is not None:
             result = _orig_frag_onSettingsChanged(self, diff)
     finally:
-        _keepFragCorrelationVehicleIconsOnly(self)
+        # Settings may have reset the view state, so force one refresh + settle pass.
+        _frag_hidden_instances.discard(self)
+        _keepFragCorrelationVehicleIconsOnly(self, force=True)
         _scheduleFragHideRepeater()
     return result
 
@@ -1015,8 +1063,8 @@ def _installFragCorrelationHook():
         if _orig_frag_onSettingsChanged is not None:
             setattr(cls, '_FragCorrelationBar__onSettingsChanged', _patched_frag_onSettingsChanged)
 
-        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.62'
-        _logger.info('FragCorrelationBar hooks installed v0.0.62')
+        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.63'
+        _logger.info('FragCorrelationBar hooks installed v0.0.63')
     except Exception:
         _logger.exception('Failed to install FragCorrelationBar hook')
 
@@ -1043,8 +1091,8 @@ def _installHook():
     else:
         _logger.warning('BattleFieldCtrl.__updateDeadVehicles not found; using listener callbacks only')
 
-    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.62'
-    _logger.info('BattleFieldCtrl hooks installed v0.0.62')
+    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.63'
+    _logger.info('BattleFieldCtrl hooks installed v0.0.63')
     _installInputHook()
 
 
