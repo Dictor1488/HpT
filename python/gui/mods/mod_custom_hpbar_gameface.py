@@ -25,7 +25,7 @@ except Exception:
     InputHandler = None
 
 _logger = logging.getLogger('[CustomHPBarGF]')
-print '[CustomHPBarGF] module import started v0.0.63-source'
+print '[CustomHPBarGF] module import started v0.0.64-source'
 
 RES_MAP_ITEM_ID = 'mods/custom_hpbar/CustomHPBarBattle/layoutID'
 POLL_INTERVAL = 0.20
@@ -190,7 +190,7 @@ def _isArenaReadyToShow():
     if key != _last_arena_gate_log:
         _last_arena_gate_log = key
         try:
-            _logger.info('Arena show gate v0.0.63: ready=%s reason=%s', ready, reason)
+            _logger.info('Arena show gate v0.0.64: ready=%s reason=%s', ready, reason)
         except Exception:
             pass
     return ready
@@ -321,8 +321,10 @@ class CustomHPBarBattleListener(IBattleFieldListener):
     def loadWindow(self):
         if not _OPENWG_OK:
             return
-        if _tab_suppressed:
-            return
+        # Note: we intentionally do NOT bail out when _tab_suppressed is True.
+        # The window is allowed to exist while TAB is held; its visibility is
+        # controlled by the suppressed flag pushed into the payload below. This
+        # keeps the window stable and avoids destroy/recreate churn on TAB.
         if not _isArenaReadyToShow():
             return
         if self.window is not None:
@@ -431,24 +433,34 @@ def _setTabSuppressed(value):
     if _tab_suppressed == value:
         return
     _tab_suppressed = value
+    # Do NOT destroy/recreate the Gameface window on TAB. Destroying it on every
+    # TAB press is heavy and was tied to input handling stutter. Instead we keep
+    # the window alive and just flip its visibility via the payload: setSuppressed
+    # pushes visible=false so the JS hides the bar immediately, and visible=true
+    # restores it when TAB is released.
     try:
-        if _listener is not None:
-            if _tab_suppressed:
-                _listener.destroy()
-            elif _current_ctrl is not None:
-                _forcePushTeamHealth(_current_ctrl)
-                _forcePushScore(_current_ctrl)
-                _forcePushIcons(_current_ctrl)
+        if _listener is not None and _listener.view is not None:
+            _listener.view.setSuppressed(_tab_suppressed)
+        if not _tab_suppressed and _current_ctrl is not None:
+            # Refresh data on release so HP/score/icons are current again.
+            _forcePushTeamHealth(_current_ctrl)
+            _forcePushScore(_current_ctrl)
+            _forcePushIcons(_current_ctrl)
     except Exception:
         _logger.exception('Failed to update TAB suppression state')
 
 
 def _onKeyDown(event):
+    # Hermetic: only ever react to TAB. For every other key (Z, X, C, ...) this
+    # returns immediately without touching the event, so radial menus and other
+    # key-driven UI are never disturbed by this mod. We never return a truthy
+    # value, so we never consume/swallow the event for the game.
     try:
         if _isTabKeyEvent(event):
             _setTabSuppressed(True)
     except Exception:
         _logger.exception('TAB key down handler failed')
+    return None
 
 
 def _onKeyUp(event):
@@ -457,6 +469,7 @@ def _onKeyUp(event):
             _setTabSuppressed(False)
     except Exception:
         _logger.exception('TAB key up handler failed')
+    return None
 
 
 def _installInputHook():
@@ -791,7 +804,7 @@ def _patched_setViewComponents(self, *components):
             except Exception:
                 pass
 
-    _logger.info('BattleFieldCtrl.setViewComponents gate check v0.0.63: %s', _arenaGateState())
+    _logger.info('BattleFieldCtrl.setViewComponents gate check v0.0.64: %s', _arenaGateState())
     _forcePushTeamHealth(self)
     _forcePushScore(self)
     _forcePushIcons(self)
@@ -896,6 +909,20 @@ def _hideFlashVisualOnly(obj):
     _tryFlashCall(obj, 'setVisible', True)
     _tryFlashCall(obj, 'as_setAlpha', 0)
     _tryFlashCall(obj, 'setAlpha', 0)
+    # Make the invisible panel click-through. Because the panel stays in the
+    # layout with full size (only alpha=0), it otherwise sits on top of the team
+    # "ears" and eats their clicks (e.g. the battle-mode switch became
+    # unclickable). Disabling mouse on both the clip and its children lets clicks
+    # pass through to the panels underneath while the layout anchor is preserved.
+    for attr, value in (('mouseEnabled', False), ('_mouseEnabled', False),
+                        ('mouseChildren', False), ('_mouseChildren', False),
+                        ('tabEnabled', False), ('useHandCursor', False)):
+        try:
+            setattr(obj, attr, value)
+        except Exception:
+            pass
+    _tryFlashCall(obj, 'as_setMouseEnabled', False)
+    _tryFlashCall(obj, 'setMouseEnabled', False)
 
 
 # Instances whose stock frag bar is already transparent. We avoid re-applying the
@@ -1063,8 +1090,8 @@ def _installFragCorrelationHook():
         if _orig_frag_onSettingsChanged is not None:
             setattr(cls, '_FragCorrelationBar__onSettingsChanged', _patched_frag_onSettingsChanged)
 
-        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.63'
-        _logger.info('FragCorrelationBar hooks installed v0.0.63')
+        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.64'
+        _logger.info('FragCorrelationBar hooks installed v0.0.64')
     except Exception:
         _logger.exception('Failed to install FragCorrelationBar hook')
 
@@ -1091,8 +1118,8 @@ def _installHook():
     else:
         _logger.warning('BattleFieldCtrl.__updateDeadVehicles not found; using listener callbacks only')
 
-    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.63'
-    _logger.info('BattleFieldCtrl hooks installed v0.0.63')
+    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.64'
+    _logger.info('BattleFieldCtrl hooks installed v0.0.64')
     _installInputHook()
 
 
