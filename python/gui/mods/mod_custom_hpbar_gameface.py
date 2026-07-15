@@ -25,7 +25,7 @@ except Exception:
     InputHandler = None
 
 _logger = logging.getLogger('[CustomHPBarGF]')
-print '[CustomHPBarGF] module import started v0.0.64-source'
+print '[CustomHPBarGF] module import started v0.0.65-source'
 
 RES_MAP_ITEM_ID = 'mods/custom_hpbar/CustomHPBarBattle/layoutID'
 POLL_INTERVAL = 0.20
@@ -190,7 +190,7 @@ def _isArenaReadyToShow():
     if key != _last_arena_gate_log:
         _last_arena_gate_log = key
         try:
-            _logger.info('Arena show gate v0.0.64: ready=%s reason=%s', ready, reason)
+            _logger.info('Arena show gate v0.0.65: ready=%s reason=%s', ready, reason)
         except Exception:
             pass
     return ready
@@ -804,7 +804,7 @@ def _patched_setViewComponents(self, *components):
             except Exception:
                 pass
 
-    _logger.info('BattleFieldCtrl.setViewComponents gate check v0.0.64: %s', _arenaGateState())
+    _logger.info('BattleFieldCtrl.setViewComponents gate check v0.0.65: %s', _arenaGateState())
     _forcePushTeamHealth(self)
     _forcePushScore(self)
     _forcePushIcons(self)
@@ -895,6 +895,44 @@ def _hideFlashObject(obj):
     _tryFlashCall(obj, 'gotoAndStop', 0)
 
 
+# --- Stock FragCorrelationBar hiding mode -------------------------------------
+# 'real'  (Variant A): truly hide the stock bar (visible=false, mask=0). Removes
+#          the snap/anchor target, so other panels no longer stick to the top and
+#          LBZ/mission block is released to the game's default position.
+# 'alpha' (Variant C): keep the bar present but transparent so LBZ still anchors
+#          to it. Causes other panels to magnetize to the invisible bar.
+# Flip this single constant to switch behavior.
+_FRAG_HIDE_MODE = 'real'
+
+
+def _hideFlashReal(obj):
+    """Variant A: fully hide the Flash object and give it no layout footprint."""
+    if obj is None:
+        return
+    for attr, value in (('_visible', False), ('visible', False),
+                        ('_alpha', 0), ('alpha', 0),
+                        ('_width', 0), ('width', 0),
+                        ('_height', 0), ('height', 0)):
+        try:
+            setattr(obj, attr, value)
+        except Exception:
+            pass
+    _tryFlashCall(obj, 'as_setVisible', False)
+    _tryFlashCall(obj, 'setVisible', False)
+    _tryFlashCall(obj, 'as_setAlpha', 0)
+    _tryFlashCall(obj, 'setAlpha', 0)
+    # Also make it inert to the mouse so nothing lingers behind.
+    for attr, value in (('mouseEnabled', False), ('_mouseEnabled', False),
+                        ('mouseChildren', False), ('_mouseChildren', False),
+                        ('tabEnabled', False), ('useHandCursor', False)):
+        try:
+            setattr(obj, attr, value)
+        except Exception:
+            pass
+    _tryFlashCall(obj, 'as_setMouseEnabled', False)
+    _tryFlashCall(obj, 'setMouseEnabled', False)
+
+
 def _hideFlashVisualOnly(obj):
     if obj is None:
         return
@@ -947,11 +985,14 @@ def _keepFragCorrelationVehicleIconsOnly(instance, force=False):
         # (e.g. after a real settings change that could have reset the state).
         if not force and instance in _frag_hidden_instances:
             return
-        # Flags from _FragBarViewState:
-        # 1 HP values, 2 HP difference, 4 tier grouping, 8 vehicle counter, 16 HP bar.
-        # Keep the full mask so the stock top panel keeps its normal layout size.
-        # The visuals are hidden by alpha only; LBZ can still anchor to this panel.
-        mask = 31
+        if _FRAG_HIDE_MODE == 'real':
+            # Variant A: mask 0 -> Flash draws nothing and keeps no footprint,
+            # so nothing can snap to it and LBZ is released to default.
+            mask = 0
+        else:
+            # Variant C: full mask keeps the layout box alive for LBZ anchoring;
+            # visuals are hidden by alpha only.
+            mask = 31
         try:
             setattr(instance, '_FragCorrelationBar__viewSettings', mask)
         except Exception:
@@ -961,12 +1002,18 @@ def _keepFragCorrelationVehicleIconsOnly(instance, force=False):
         except Exception:
             pass
         try:
-            _hideFlashVisualOnly(instance)
+            if _FRAG_HIDE_MODE == 'real':
+                _hideFlashReal(instance)
+            else:
+                _hideFlashVisualOnly(instance)
         except Exception:
             pass
         try:
             flash = getattr(instance, 'flashObject', None)
-            _hideFlashVisualOnly(flash)
+            if _FRAG_HIDE_MODE == 'real':
+                _hideFlashReal(flash)
+            else:
+                _hideFlashVisualOnly(flash)
         except Exception:
             pass
         _frag_hidden_instances.add(instance)
@@ -1090,8 +1137,8 @@ def _installFragCorrelationHook():
         if _orig_frag_onSettingsChanged is not None:
             setattr(cls, '_FragCorrelationBar__onSettingsChanged', _patched_frag_onSettingsChanged)
 
-        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.64'
-        _logger.info('FragCorrelationBar hooks installed v0.0.64')
+        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.65'
+        _logger.info('FragCorrelationBar hooks installed v0.0.65')
     except Exception:
         _logger.exception('Failed to install FragCorrelationBar hook')
 
@@ -1118,8 +1165,8 @@ def _installHook():
     else:
         _logger.warning('BattleFieldCtrl.__updateDeadVehicles not found; using listener callbacks only')
 
-    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.64'
-    _logger.info('BattleFieldCtrl hooks installed v0.0.64')
+    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.65'
+    _logger.info('BattleFieldCtrl hooks installed v0.0.65')
     _installInputHook()
 
 
