@@ -25,7 +25,7 @@ except Exception:
     InputHandler = None
 
 _logger = logging.getLogger('[CustomHPBarGF]')
-print '[CustomHPBarGF] module import started v0.0.65-source'
+print '[CustomHPBarGF] module import started v0.0.66-source'
 
 RES_MAP_ITEM_ID = 'mods/custom_hpbar/CustomHPBarBattle/layoutID'
 POLL_INTERVAL = 0.20
@@ -190,7 +190,7 @@ def _isArenaReadyToShow():
     if key != _last_arena_gate_log:
         _last_arena_gate_log = key
         try:
-            _logger.info('Arena show gate v0.0.65: ready=%s reason=%s', ready, reason)
+            _logger.info('Arena show gate v0.0.66: ready=%s reason=%s', ready, reason)
         except Exception:
             pass
     return ready
@@ -804,7 +804,7 @@ def _patched_setViewComponents(self, *components):
             except Exception:
                 pass
 
-    _logger.info('BattleFieldCtrl.setViewComponents gate check v0.0.65: %s', _arenaGateState())
+    _logger.info('BattleFieldCtrl.setViewComponents gate check v0.0.66: %s', _arenaGateState())
     _forcePushTeamHealth(self)
     _forcePushScore(self)
     _forcePushIcons(self)
@@ -905,6 +905,59 @@ def _hideFlashObject(obj):
 _FRAG_HIDE_MODE = 'real'
 
 
+_FRAG_ALIAS = 'fragCorrelationBar'
+
+
+def _hideFragComponentViaParent(instance):
+    """Most reliable hide: ask the battle page to hide the whole component.
+
+    The score block (0:0, +NNN, #rank) is drawn by as_updateTeamHealthValues and
+    is NOT affected by the view-setting mask, so masking/alpha can't remove it.
+    Hiding the component by alias through the page's own visibility API removes
+    the entire Flash container from the layout the same way the game does it,
+    which also clears the snap/anchor target behind the panel.
+    Returns True if a hide call was issued.
+    """
+    if instance is None:
+        return False
+    # Try several documented ways to reach the owning page from a DAAPI component.
+    page = None
+    for getter in ('getParentView', '_getParentView', 'getParentWindow'):
+        try:
+            fn = getattr(instance, getter, None)
+            if callable(fn):
+                page = fn()
+                if page is not None:
+                    break
+        except Exception:
+            page = None
+    if page is None:
+        for attr in ('_parentUIObj', 'parentUIObj', '_parentView', 'parent'):
+            try:
+                page = getattr(instance, attr, None)
+                if page is not None:
+                    break
+            except Exception:
+                page = None
+    if page is None:
+        return False
+    hidden = set([_FRAG_ALIAS])
+    for method in ('as_setComponentsVisibilityS', '_setComponentsVisibility'):
+        try:
+            fn = getattr(page, method, None)
+            if not callable(fn):
+                continue
+            if method == 'as_setComponentsVisibilityS':
+                fn(set(), hidden)          # (visible, hidden)
+            else:
+                fn(None, hidden)           # (visible=None, hidden=...)
+            _logger.info('Hid fragCorrelationBar via page.%s', method)
+            return True
+        except Exception:
+            continue
+    return False
+
+
 def _hideFlashReal(obj):
     """Variant A: fully hide the Flash object and give it no layout footprint."""
     if obj is None:
@@ -986,8 +1039,13 @@ def _keepFragCorrelationVehicleIconsOnly(instance, force=False):
         if not force and instance in _frag_hidden_instances:
             return
         if _FRAG_HIDE_MODE == 'real':
-            # Variant A: mask 0 -> Flash draws nothing and keeps no footprint,
-            # so nothing can snap to it and LBZ is released to default.
+            # Primary path: hide the whole component via the page (removes the
+            # score block too, which the mask cannot touch). Fall through to the
+            # Flash-object hide below as a belt-and-suspenders backup.
+            try:
+                _hideFragComponentViaParent(instance)
+            except Exception:
+                _logger.exception('Component-level frag hide failed')
             mask = 0
         else:
             # Variant C: full mask keeps the layout box alive for LBZ anchoring;
@@ -1137,8 +1195,8 @@ def _installFragCorrelationHook():
         if _orig_frag_onSettingsChanged is not None:
             setattr(cls, '_FragCorrelationBar__onSettingsChanged', _patched_frag_onSettingsChanged)
 
-        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.65'
-        _logger.info('FragCorrelationBar hooks installed v0.0.65')
+        print '[CustomHPBarGF] FragCorrelationBar hooks installed v0.0.66'
+        _logger.info('FragCorrelationBar hooks installed v0.0.66')
     except Exception:
         _logger.exception('Failed to install FragCorrelationBar hook')
 
@@ -1165,8 +1223,8 @@ def _installHook():
     else:
         _logger.warning('BattleFieldCtrl.__updateDeadVehicles not found; using listener callbacks only')
 
-    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.65'
-    _logger.info('BattleFieldCtrl hooks installed v0.0.65')
+    print '[CustomHPBarGF] BattleFieldCtrl hooks installed v0.0.66'
+    _logger.info('BattleFieldCtrl hooks installed v0.0.66')
     _installInputHook()
 
 
