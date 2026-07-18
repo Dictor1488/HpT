@@ -239,6 +239,13 @@
     }
 
     function resizeWindow() {
+        // NOTE: clientWidth/clientHeight below describe the *screen* and are only
+        // used to derive the adaptive scale (bigger screens -> bigger bar). They
+        // must NOT be used as the native Gameface surface size: in Gameface the
+        // native surface itself is the hit-test surface, and transparent pixels
+        // inside it are NOT click-through to the Scaleform battle HUD underneath.
+        // A full-screen surface here silently blocks mouse input everywhere in
+        // battle, which is why we size the surface to the bar itself below.
         var clientWidth = BASE_WIDTH;
         var clientHeight = REFERENCE_HEIGHT;
         if (window.viewEnv && viewEnv.getClientSizePx) {
@@ -264,13 +271,29 @@
         if (ratio > 2.5) ratio = 2.5;
         GAMEFACE_SCALE_FIX = GAMEFACE_SCALE_BASE * ratio;
 
+        // Size the *native surface* to the bar's own scaled footprint, not the
+        // screen, so the hit-test surface is tightly fitted to the visible panel
+        // and can no longer block clicks elsewhere in the battle HUD.
+        var surfaceWidth = Math.ceil(BASE_WIDTH * GAMEFACE_SCALE_FIX);
         var height = Math.ceil(BASE_HEIGHT * GAMEFACE_SCALE_FIX) + 18;
-        var size = clientWidth + 'x' + height;
+        var size = surfaceWidth + 'x' + height;
         if (size !== lastSize && window.viewEnv && viewEnv.resizeViewPx) {
             lastSize = size;
-            viewEnv.resizeViewPx(clientWidth, height);
+            viewEnv.resizeViewPx(surfaceWidth, height);
+            // Tell Python the new surface size so it can re-center the window.
+            // The window can't center itself from CSS anymore now that the
+            // surface is sized to the bar instead of the full screen.
+            try {
+                if (window.model && typeof window.model.onResized === 'function') {
+                    window.model.onResized(surfaceWidth, height);
+                }
+            } catch (e) {}
         }
-        if (holder) holder.style.transform = 'translateX(-50%) scale(' + GAMEFACE_SCALE_FIX + ')';
+        // No horizontal centering transform needed anymore: once the native
+        // surface is exactly the bar's width, the surface itself should be
+        // centered on screen (via the window's own position), not the content
+        // inside an oversized surface.
+        if (holder) holder.style.transform = 'scale(' + GAMEFACE_SCALE_FIX + ')';
     }
 
     function defs() {

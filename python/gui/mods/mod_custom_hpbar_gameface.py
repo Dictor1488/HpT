@@ -6,6 +6,7 @@ import json
 import logging
 
 import BigWorld
+import GUI
 
 from frameworks.wulf import ViewModel, ViewSettings, ViewFlags, WindowFlags
 from gui.impl.pub import ViewImpl, WindowImpl
@@ -33,6 +34,72 @@ HIDE_STOCK_TEAM_HP = True
 FORCE_ONLY_CUSTOM_LISTENER = False
 ARENA_SHOW_MIN_PERIOD = 1
 _last_arena_gate_log = None
+_active_listener = None
+
+
+def _center_hpbar_window(surface_width, surface_height):
+    """Center the loaded CustomHPBarWindow horizontally on screen.
+
+    Needed because CustomHPBar.js now sizes the native Gameface surface to
+    the bar's own footprint (surface_width x surface_height) instead of the
+    full screen -- see the resizeWindow() comment in CustomHPBar.js. That
+    fixed clicks being swallowed everywhere in battle, but it also means this
+    window is no longer automatically centered by the old CSS trick.
+
+    IMPORTANT: the exact window-positioning call (move/setPosition/position=)
+    depends on the WindowImpl/windowsManager contract in this client build,
+    which isn't available to verify outside the real game client. This tries
+    a few commonly-seen shapes for Wulf-style WindowImpl and logs which one
+    (if any) succeeded, so the working one can be confirmed in-game and the
+    others deleted.
+    """
+    listener = _active_listener
+    window = getattr(listener, 'window', None) if listener is not None else None
+    if window is None:
+        return
+
+    try:
+        screen_w, screen_h = GUI.screenResolution()
+    except Exception:
+        _logger.warning('_center_hpbar_window: could not read GUI.screenResolution()')
+        return
+
+    target_x = int(max(0, (screen_w - surface_width) // 2))
+    target_y = 0  # keep the existing top placement; only re-center horizontally
+
+    # --- Candidate 1: window.move(x, y) -------------------------------
+    move_fn = getattr(window, 'move', None)
+    if callable(move_fn):
+        try:
+            move_fn(target_x, target_y)
+            _logger.info('_center_hpbar_window: window.move(%s, %s) OK', target_x, target_y)
+            return
+        except Exception:
+            _logger.exception('_center_hpbar_window: window.move() failed')
+
+    # --- Candidate 2: window.position = (x, y) -------------------------
+    if hasattr(window, 'position'):
+        try:
+            window.position = (target_x, target_y)
+            _logger.info('_center_hpbar_window: window.position = (%s, %s) OK', target_x, target_y)
+            return
+        except Exception:
+            _logger.exception('_center_hpbar_window: window.position assignment failed')
+
+    # --- Candidate 3: window.setPosition(x, y) --------------------------
+    set_pos_fn = getattr(window, 'setPosition', None)
+    if callable(set_pos_fn):
+        try:
+            set_pos_fn(target_x, target_y)
+            _logger.info('_center_hpbar_window: window.setPosition(%s, %s) OK', target_x, target_y)
+            return
+        except Exception:
+            _logger.exception('_center_hpbar_window: window.setPosition() failed')
+
+    _logger.warning(
+        '_center_hpbar_window: no known positioning API found on window (%r); '
+        'inspect dir(window) in-game to find the right call.', type(window)
+    )
 
 
 try:
@@ -207,9 +274,29 @@ class CustomHPBarModel(ViewModel):
         self._addStringProperty('payload', '{}')
         self.onReady = self._addCommand('onReady')
         self.onReady += self.__onReady
+        # Fired by CustomHPBar.js right after it calls viewEnv.resizeViewPx(),
+        # i.e. once per real size change (not every frame -- JS only calls this
+        # when the computed size actually differs from the last one it sent).
+        # This is where we (re)center the window now that the native surface
+        # is sized to the bar itself instead of the full screen -- see the
+        # resizeWindow() comment in CustomHPBar.js for why that changed.
+        self.onResized = self._addCommand('onResized')
+        self.onResized += self.__onResized
 
     def __onReady(self, *args):
         _logger.info('Gameface view ready: %s', args)
+
+    def __onResized(self, width, height, *args):
+        try:
+            width = int(width)
+            height = int(height)
+        except Exception:
+            _logger.warning('onResized: bad size args %r', (width, height))
+            return
+        try:
+            _center_hpbar_window(width, height)
+        except Exception:
+            _logger.exception('onResized: failed to center window for size %sx%s', width, height)
 
     def getPayload(self):
         return self._getString(0)
@@ -308,6 +395,26 @@ class CustomHPBarView(ViewImpl):
 
 
 class CustomHPBarWindow(WindowImpl):
+    # NOTE: CustomHPBar.js used to call viewEnv.resizeViewPx() with the full
+    # screen width, and CustomHPBar.css centered the bar *inside* that
+    # full-screen surface with left:50%/translateX(-50%). That surface is a
+    # real hit-test surface in Gameface (transparent pixels are not
+    # click-through to the Scaleform battle HUD underneath), so it was
+    # silently swallowing mouse clicks everywhere in battle.
+    #
+    # CustomHPBar.js/CustomHPBar.css have been changed to size the native
+    # surface to the bar's own (scaled) footprint instead of the screen. That
+    # fixes the click-blocking, but it also means this window is no longer
+    # centered by the old CSS trick -- it will now sit wherever this window's
+    # default/last position is (commonly top-left) instead of top-center.
+    #
+    # TODO: center this window horizontally on screen once loaded, e.g. via
+    # this client's window.move()/windowsManager equivalent, using the
+    # surface width CustomHPBar.js requests via resizeViewPx() (BASE_WIDTH *
+    # current scale) and the current screen width. The exact positioning API
+    # depends on the WindowImpl/windowsManager contract in this client build,
+    # so it intentionally isn't guessed here -- verify against this client's
+    # actual Wulf/WindowImpl API before wiring it up.
     def __init__(self):
         super(CustomHPBarWindow, self).__init__(wndFlags=WindowFlags.WINDOW, content=CustomHPBarView())
 
@@ -317,6 +424,8 @@ class CustomHPBarBattleListener(IBattleFieldListener):
         self.window = None
         self.view = None
         self.loadWindow()
+        global _active_listener
+        _active_listener = self
 
     def loadWindow(self):
         if not _OPENWG_OK:
@@ -353,6 +462,9 @@ class CustomHPBarBattleListener(IBattleFieldListener):
                 pass
         self.window = None
         self.view = None
+        global _active_listener
+        if _active_listener is self:
+            _active_listener = None
 
     def updateVehicleHealth(self, vehicleID, newHealth, maxHealth):
         pass

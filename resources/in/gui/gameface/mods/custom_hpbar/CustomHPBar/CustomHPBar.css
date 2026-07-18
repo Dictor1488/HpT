@@ -17,14 +17,19 @@ html, body {
 #hpbar-root.hidden { display: none; }
 #hpbar-holder {
   position: absolute;
-  left: 50%;
+  left: 0;
   top: -8px;
   width: 1052px;
   height: 118px;
   /* Initial scale for 1080p. CustomHPBar.js recomputes this per resolution in
-     resizeWindow() (e.g. ~1.09 at 1440p/2K), so this is just the pre-JS default. */
-  transform: translateX(-50%) scale(0.82);
-  transform-origin: top center;
+     resizeWindow() (e.g. ~1.09 at 1440p/2K), so this is just the pre-JS default.
+     No translateX(-50%) here anymore: the native Gameface surface is now sized
+     to the bar itself (see resizeWindow() in CustomHPBar.js), so centering on
+     screen is the window's job, not something to fake inside an oversized,
+     full-screen surface (which was also why clicks were getting swallowed
+     everywhere in battle -- the native surface is a real hit-test surface). */
+  transform: scale(0.82);
+  transform-origin: top left;
   pointer-events: none;
   overflow: visible;
 }
